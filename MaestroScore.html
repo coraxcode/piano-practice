@@ -2441,27 +2441,26 @@ function dl(blob, name) {
 function doPlay(startMeasure = 0) {
   if (playing) { doStop(); return; }
   playing = true;
-  activeOscillators = [];
   playbackTimers = [];
   document.getElementById('playBtn').classList.add('playing');
   document.getElementById('playBtn').innerHTML = '⏸ Pause';
   document.getElementById('sPlay').textContent = startMeasure > 0 ? `Playing from M${startMeasure + 1}...` : 'Playing...';
 
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  // Fresh audio context every play — guarantees no leaked nodes
+  initAudioCtx();
 
   const svg = document.getElementById('scoreSvg');
   const bpm = S.tempo, bd = 60 / bpm;
-  const baseTime = audioCtx.currentTime + 0.15;
+  const baseTime = audioCtx.currentTime + 0.2;
   let t = baseTime;
 
-  // ── Build playback timeline with visual coordinates ──
-  const timeline = []; // {audioTime, mi, pos, dur(beats), eventsAtPos}
+  // ── Build audio timeline (DATA ONLY — no audio nodes yet) ──
+  audioTimeline = [];
+  audioTimelineIdx = 0;
+  const visualTimeline = []; // for cursor/highlights
 
   S.measures.forEach((m, mi) => {
     const beatCap = getMeasureBeatCapacity();
-
-    // Skip measures before startMeasure (don't schedule audio, don't add time)
     if (mi < startMeasure) return;
 
     const startT = t;
@@ -2472,8 +2471,6 @@ function doPlay(startMeasure = 0) {
     }
 
     const sorted = [...m.events].sort((a, b) => a.pos - b.pos);
-
-    // Group by position
     const byPos = {};
     sorted.forEach(ev => {
       const k = ev.pos.toFixed(4);
@@ -2495,11 +2492,17 @@ function doPlay(startMeasure = 0) {
           if (n.rest) return;
           const midi = pitchToMidi(n.step, n.octave, n.alter || 0);
           const freq = 440 * Math.pow(2, (midi - 69) / 12);
-          playNote(freq, noteTime, dur, ev.staff === 1 ? .22 : .18);
+          // Push to timeline — audio nodes created later by scheduler
+          audioTimeline.push({
+            time: noteTime,
+            freq,
+            dur,
+            vol: ev.staff === 1 ? 0.22 : 0.18
+          });
         });
       });
 
-      timeline.push({
+      visualTimeline.push({
         audioTime: noteTime,
         mi,
         pos,
@@ -2510,6 +2513,13 @@ function doPlay(startMeasure = 0) {
 
     t = startT + beatCap * bd;
   });
+
+  // Sort audio timeline by time
+  audioTimeline.sort((a, b) => a.time - b.time);
+
+  // ── Start lookahead scheduler ──
+  runScheduler(); // schedule first batch immediately
+  schedulerInterval = setInterval(runScheduler, SCHEDULER_MS);
 
   // ── Schedule visual highlights ──
   const scoreWrap = document.getElementById('scoreWrap');
@@ -2547,7 +2557,7 @@ function doPlay(startMeasure = 0) {
   cursorGroup.setAttribute('id', 'playbackCursorGroup');
   svg.appendChild(cursorGroup);
 
-  timeline.forEach((entry, idx) => {
+  visualTimeline.forEach((entry, idx) => {
     const delayMs = (entry.audioTime - baseTime) * 1000;
     const durationMs = entry.durSec * 1000;
 
@@ -2654,115 +2664,174 @@ function clearPlaybackVisuals() {
 }
 
 // ── SOUND PRESETS ──
-// Each preset defines oscillators, harmonics, envelope, and filter settings
+// Simplified to 2 oscillators max for performance — still distinct timbres
 const SOUND_PRESETS = {
   grand: {
     name: 'Grand Piano',
-    oscillators: [
-      { type: 'triangle', detune: 0, gain: 1.0 },
-      { type: 'sine', freqMult: 2, gain: 0.12 },
-      { type: 'sine', freqMult: 3, gain: 0.04 },
-    ],
-    filter: { type: 'lowpass', freqMult: 4, maxFreq: 4000, Q: 1 },
-    envelope: { attack: 0.005, hold: 0.1, decayRatio: 0.8, release: 0.95 },
+    osc1: 'triangle', osc2: 'sine', osc2FreqMult: 2, osc2Gain: 0.12,
+    filterFreqMult: 4, filterMax: 4000, filterQ: 1,
+    attack: 0.005, decay: 0.8, release: 0.92,
   },
   bright: {
     name: 'Bright Piano',
-    oscillators: [
-      { type: 'sawtooth', detune: 0, gain: 0.35 },
-      { type: 'triangle', detune: 3, gain: 0.5 },
-      { type: 'sine', freqMult: 4, gain: 0.08 },
-    ],
-    filter: { type: 'lowpass', freqMult: 6, maxFreq: 8000, Q: 0.7 },
-    envelope: { attack: 0.003, hold: 0.05, decayRatio: 0.75, release: 0.9 },
+    osc1: 'sawtooth', osc2: 'triangle', osc2FreqMult: 1.002, osc2Gain: 0.6,
+    filterFreqMult: 6, filterMax: 8000, filterQ: 0.7,
+    attack: 0.003, decay: 0.75, release: 0.88,
   },
   electric: {
     name: 'Electric Piano',
-    oscillators: [
-      { type: 'sine', detune: 0, gain: 0.8 },
-      { type: 'sine', freqMult: 2, gain: 0.5 },
-      { type: 'sine', freqMult: 3.5, gain: 0.15 },
-      { type: 'triangle', freqMult: 0.5, gain: 0.1 },
-    ],
-    filter: { type: 'lowpass', freqMult: 3, maxFreq: 3000, Q: 2.5 },
-    envelope: { attack: 0.002, hold: 0.15, decayRatio: 0.6, release: 0.85 },
+    osc1: 'sine', osc2: 'sine', osc2FreqMult: 3.5, osc2Gain: 0.15,
+    filterFreqMult: 3, filterMax: 3000, filterQ: 2.5,
+    attack: 0.002, decay: 0.6, release: 0.82,
   },
   harpsi: {
     name: 'Harpsichord',
-    oscillators: [
-      { type: 'sawtooth', detune: 0, gain: 0.3 },
-      { type: 'square', freqMult: 2, gain: 0.15 },
-      { type: 'sawtooth', freqMult: 3, gain: 0.08 },
-    ],
-    filter: { type: 'lowpass', freqMult: 8, maxFreq: 10000, Q: 0.5 },
-    envelope: { attack: 0.001, hold: 0.02, decayRatio: 0.5, release: 0.7 },
+    osc1: 'sawtooth', osc2: 'square', osc2FreqMult: 2, osc2Gain: 0.2,
+    filterFreqMult: 8, filterMax: 10000, filterQ: 0.5,
+    attack: 0.001, decay: 0.4, release: 0.65,
   },
 };
 
-function playNote(freq, start, dur, vol) {
+// ── LOOKAHEAD AUDIO SCHEDULER ──
+// Instead of creating thousands of audio nodes at once, we schedule in small
+// batches ahead of the current playback time. This prevents buffer overruns,
+// hissing, and slowdowns even with 1000+ note scores.
+
+let audioTimeline = [];     // [{time, freq, dur, vol}, ...] sorted by time
+let audioTimelineIdx = 0;   // current position in timeline
+let schedulerInterval = null;
+let masterGainNode = null;   // shared compressor→gain output chain
+let compressorNode = null;
+let allAudioNodes = [];      // ALL created nodes for guaranteed cleanup
+
+const LOOKAHEAD_SEC = 0.25;  // schedule notes 250ms ahead
+const SCHEDULER_MS = 80;     // check every 80ms
+
+function initAudioCtx() {
+  if (audioCtx) {
+    try { audioCtx.close(); } catch(e) {}
+  }
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // Master output chain: compressor → gain → destination
+  // Compressor prevents clipping when many notes play simultaneously
+  compressorNode = audioCtx.createDynamicsCompressor();
+  compressorNode.threshold.setValueAtTime(-12, audioCtx.currentTime);
+  compressorNode.knee.setValueAtTime(20, audioCtx.currentTime);
+  compressorNode.ratio.setValueAtTime(8, audioCtx.currentTime);
+  compressorNode.attack.setValueAtTime(0.004, audioCtx.currentTime);
+  compressorNode.release.setValueAtTime(0.1, audioCtx.currentTime);
+
+  masterGainNode = audioCtx.createGain();
+  masterGainNode.gain.setValueAtTime(0.7, audioCtx.currentTime);
+
+  compressorNode.connect(masterGainNode);
+  masterGainNode.connect(audioCtx.destination);
+}
+
+function scheduleNote(freq, startTime, dur, vol) {
   if (!audioCtx || !playing) return;
 
   const preset = SOUND_PRESETS[curSound] || SOUND_PRESETS.grand;
-  const env = preset.envelope;
-  const flt = preset.filter;
+  const now = audioCtx.currentTime;
 
-  // Master gain with envelope
-  const masterGain = audioCtx.createGain();
-  masterGain.gain.setValueAtTime(0, start);
-  masterGain.gain.linearRampToValueAtTime(vol, start + env.attack);
-  masterGain.gain.setValueAtTime(vol * env.decayRatio, start + env.attack + dur * env.hold);
-  masterGain.gain.exponentialRampToValueAtTime(0.001, start + dur * env.release);
+  // Clamp start time to not be in the past
+  const t = Math.max(startTime, now + 0.005);
 
-  // Filter
+  // Create minimal node chain: osc1 + osc2 → filter → envelope gain → master bus
+  const envGain = audioCtx.createGain();
+  envGain.gain.setValueAtTime(0, t);
+  envGain.gain.linearRampToValueAtTime(vol, t + preset.attack);
+  envGain.gain.setValueAtTime(vol * preset.decay, t + preset.attack + dur * 0.08);
+  envGain.gain.exponentialRampToValueAtTime(0.0001, t + dur * preset.release);
+
   const filter = audioCtx.createBiquadFilter();
-  filter.type = flt.type;
-  filter.frequency.setValueAtTime(Math.min(freq * flt.freqMult, flt.maxFreq), start);
-  filter.Q.setValueAtTime(flt.Q, start);
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(Math.min(freq * preset.filterFreqMult, preset.filterMax), t);
+  filter.Q.setValueAtTime(preset.filterQ, t);
 
-  filter.connect(masterGain);
-  masterGain.connect(audioCtx.destination);
+  filter.connect(envGain);
+  envGain.connect(compressorNode);
 
-  // Create oscillators from preset
-  preset.oscillators.forEach(oscDef => {
-    const osc = audioCtx.createOscillator();
-    osc.type = oscDef.type;
+  // Oscillator 1 (fundamental)
+  const osc1 = audioCtx.createOscillator();
+  osc1.type = preset.osc1;
+  osc1.frequency.setValueAtTime(freq, t);
+  osc1.connect(filter);
+  osc1.start(t);
+  osc1.stop(t + dur);
 
-    const oscFreq = oscDef.freqMult ? freq * oscDef.freqMult : freq;
-    osc.frequency.setValueAtTime(oscFreq, start);
-    if (oscDef.detune) osc.detune.setValueAtTime(oscDef.detune, start);
+  // Oscillator 2 (harmonic/detune)
+  const osc2 = audioCtx.createOscillator();
+  osc2.type = preset.osc2;
+  osc2.frequency.setValueAtTime(freq * preset.osc2FreqMult, t);
+  const osc2Gain = audioCtx.createGain();
+  osc2Gain.gain.setValueAtTime(preset.osc2Gain, t);
+  osc2.connect(osc2Gain);
+  osc2Gain.connect(filter);
+  osc2.start(t);
+  osc2.stop(t + dur);
 
-    const oscGain = audioCtx.createGain();
-    oscGain.gain.setValueAtTime(oscDef.gain, start);
+  // Track ALL nodes for cleanup
+  const nodeSet = [osc1, osc2, osc2Gain, filter, envGain];
+  allAudioNodes.push(...nodeSet);
 
-    osc.connect(oscGain);
-    oscGain.connect(filter);
+  // Auto-cleanup when oscillators end — disconnect entire chain
+  osc1.onended = () => {
+    nodeSet.forEach(n => { try { n.disconnect(); } catch(e) {} });
+    // Remove from tracking array
+    nodeSet.forEach(n => {
+      const idx = allAudioNodes.indexOf(n);
+      if (idx >= 0) allAudioNodes.splice(idx, 1);
+    });
+  };
+}
 
-    osc.start(start);
-    osc.stop(start + dur);
+function runScheduler() {
+  if (!playing || !audioCtx) return;
 
-    activeOscillators.push(osc);
-    osc.onended = () => {
-      const idx = activeOscillators.indexOf(osc);
-      if (idx >= 0) activeOscillators.splice(idx, 1);
-      try { osc.disconnect(); } catch(e) {}
-    };
-  });
+  const now = audioCtx.currentTime;
+  const horizon = now + LOOKAHEAD_SEC;
+
+  // Schedule all notes within the lookahead window
+  while (audioTimelineIdx < audioTimeline.length) {
+    const entry = audioTimeline[audioTimelineIdx];
+    if (entry.time > horizon) break; // not yet time
+    scheduleNote(entry.freq, entry.time, entry.dur, entry.vol);
+    audioTimelineIdx++;
+  }
 }
 
 function doStop() {
   playing = false;
   if (playTimer) { clearTimeout(playTimer); playTimer = null; }
 
-  // Clear all scheduled visual timers
+  // Stop scheduler
+  if (schedulerInterval) { clearInterval(schedulerInterval); schedulerInterval = null; }
+
+  // Clear all visual timers
   playbackTimers.forEach(id => clearTimeout(id));
   playbackTimers = [];
 
-  // Stop all active oscillators
-  activeOscillators.forEach(osc => {
-    try { osc.stop(0); } catch(e) {}
-    try { osc.disconnect(); } catch(e) {}
+  // Disconnect and stop ALL audio nodes
+  allAudioNodes.forEach(node => {
+    try { if (node.stop) node.stop(0); } catch(e) {}
+    try { node.disconnect(); } catch(e) {}
   });
+  allAudioNodes = [];
   activeOscillators = [];
+
+  // Close audio context entirely to guarantee cleanup of any leaked nodes
+  if (audioCtx) {
+    try { audioCtx.close(); } catch(e) {}
+    audioCtx = null;
+    masterGainNode = null;
+    compressorNode = null;
+  }
+
+  // Reset timeline
+  audioTimeline = [];
+  audioTimelineIdx = 0;
 
   // Remove all visual playback elements
   clearPlaybackVisuals();
