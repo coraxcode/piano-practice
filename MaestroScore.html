@@ -110,6 +110,16 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--bg0);color:var(--tx
 /* Selection highlight */
 .note-selected ellipse,.note-selected rect{filter:drop-shadow(0 0 4px #4a90d9)}
 
+/* Playback cursor */
+.playback-line{pointer-events:none}
+.playback-highlight{pointer-events:none}
+
+@keyframes note-glow{
+  0%{opacity:.85}
+  50%{opacity:.5}
+  100%{opacity:.85}
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar{width:7px;height:7px}
 ::-webkit-scrollbar-track{background:0 0}
@@ -312,8 +322,9 @@ kbd{background:var(--bg2);padding:1px 4px;border-radius:2px;font-family:'JetBrai
 const SLS = 10;         // staff line spacing
 const MARGIN_TOP = 90;  // top margin for title
 const MARGIN_L = 70;    // left margin
-const MEAS_W = 220;     // measure width
-const SYS_GAP = 240;    // distance between systems
+const MEAS_W_DEFAULT = 220;     // default measure width
+let MEAS_W = 220;     // current measure width (may adapt)
+const SYS_GAP = 270;    // distance between systems (increased for symbol stacking)
 const GRAND_GAP = 65;   // gap between treble & bass
 const MPS = 4;          // measures per system
 const NHR = 5.8, NHY = 4.2; // note head radii
@@ -376,6 +387,9 @@ let undoStack = [], redoStack = [];
 let audioCtx = null, playing = false, playTimer = null;
 let activeOscillators = []; // Track all active audio nodes for proper stop
 let ghostEl = null;
+let playbackTimers = []; // Timers for visual highlight scheduling
+let playbackCursorEl = null; // SVG element for the playback cursor line
+let playbackHighlights = []; // SVG elements for note highlights
 
 // ── TOAST ──
 let toastTimer = null;
@@ -727,8 +741,22 @@ function moveSelectedPitch(dir) {
 function render() {
   const svg = document.getElementById('scoreSvg');
   const nm = S.measures.length;
-  const ns = Math.ceil(nm / MPS);
-  const W = Math.max(960, MARGIN_L + MPS * MEAS_W + 30);
+
+  // Adaptive measure width based on note density
+  let maxEventsPerStaff = 0;
+  S.measures.forEach(m => {
+    const s1 = m.events.filter(e => e.staff === 1);
+    const s2 = m.events.filter(e => e.staff === 2);
+    maxEventsPerStaff = Math.max(maxEventsPerStaff, s1.length, s2.length);
+  });
+  // Widen measures for dense scores: at least 14px per unique beat position
+  MEAS_W = Math.max(MEAS_W_DEFAULT, Math.min(400, maxEventsPerStaff * 14 + 40));
+  
+  // Reduce measures per system for very wide measures
+  const effectiveMPS = MEAS_W > 350 ? 2 : MEAS_W > 280 ? 3 : MPS;
+
+  const ns = Math.ceil(nm / effectiveMPS);
+  const W = Math.max(960, MARGIN_L + effectiveMPS * MEAS_W + 30);
   const H = MARGIN_TOP + ns * SYS_GAP + 80;
   svg.setAttribute('width', W);
   svg.setAttribute('height', H);
@@ -754,7 +782,7 @@ function render() {
   svg.appendChild(tmp);
 
   for (let si = 0; si < ns; si++) {
-    const sm = si * MPS, em = Math.min(sm + MPS, nm);
+    const sm = si * effectiveMPS, em = Math.min(sm + effectiveMPS, nm);
     const sy = MARGIN_TOP + si * SYS_GAP;
     renderSystem(svg, si, sy, sm, em, W);
   }
@@ -872,17 +900,18 @@ function onStaffHover(e, mi, clef, mx, mw, staffY) {
   if (lastPos >= beatCap && !chordMode) return;
 
   // Position the ghost at where the note would actually appear after placement
-  const spacing = mw / (staffEvs.length + 2);
   let ex;
   if (chordMode && staffEvs.length > 0) {
     // In chord mode, ghost goes on top of the last event
-    const renderSpacing = mw / (staffEvs.length + 1);
-    ex = mx + renderSpacing * staffEvs.length;
+    const lastEv = staffEvs[staffEvs.length - 1];
+    const ratio = beatCap > 0 ? lastEv.pos / beatCap : 0.5;
+    const gMargin = mw * 0.06;
+    ex = mx + gMargin + ratio * (mw - gMargin * 2);
   } else {
-    // Normal mode: note will be added, making events.length+1 total
-    const futureCount = staffEvs.length + 1;
-    const futureSpacing = mw / (futureCount + 1);
-    ex = mx + futureSpacing * futureCount;
+    // Normal mode: show where next note would be placed
+    const ratio = beatCap > 0 ? lastPos / beatCap : 0.5;
+    const gMargin = mw * 0.06;
+    ex = mx + gMargin + ratio * (mw - gMargin * 2);
   }
 
   const filled = !['whole','half'].includes(curDur);
@@ -954,10 +983,35 @@ function renderEvents(svg, meas, mx, mw, tY, bY, mi) {
 
 function renderStaffEvents(svg, events, mx, mw, staffY, clef, mi, meas) {
   if (!events.length) return;
-  const spacing = mw / (events.length + 1);
+
+  // --- PROPORTIONAL BEAT-BASED POSITIONING ---
+  // Group events by beat position to prevent overlap
+  const beatCap = getMeasureBeatCapacity();
+  const margin = mw * 0.06; // left/right margin within measure
+  const usableW = mw - margin * 2;
+
+  // Get unique sorted beat positions
+  const uniquePositions = [...new Set(events.map(e => Math.round(e.pos * 1000) / 1000))].sort((a, b) => a - b);
+
+  // Calculate X for each beat position: use proportional spacing
+  // but ensure minimum spacing between adjacent positions
+  const minSpacing = Math.min(14, usableW / (uniquePositions.length + 1));
+  const posXMap = new Map();
+
+  if (uniquePositions.length === 1) {
+    posXMap.set(uniquePositions[0], mx + mw / 2);
+  } else {
+    uniquePositions.forEach((pos, i) => {
+      // Proportional position within measure
+      const ratio = beatCap > 0 ? pos / beatCap : i / uniquePositions.length;
+      const x = mx + margin + ratio * usableW;
+      posXMap.set(pos, x);
+    });
+  }
 
   events.forEach((ev, localIdx) => {
-    const ex = mx + spacing * (localIdx + 1);
+    const roundedPos = Math.round(ev.pos * 1000) / 1000;
+    const ex = posXMap.get(roundedPos) || (mx + mw / 2);
     const globalEi = meas.events.indexOf(ev);
 
     ev.notes.forEach((note, ni) => {
@@ -971,14 +1025,30 @@ function renderStaffEvents(svg, events, mx, mw, staffY, clef, mi, meas) {
       const isSel = selNote && selNote.mi === mi && selNote.ei === globalEi && selNote.ni === ni;
       const clr = isSel ? '#2563eb' : '#1a1510';
 
+      // Check if this note needs horizontal displacement (seconds in chords)
+      let noteXOffset = 0;
+      if (ev.notes.length > 1 && !note.rest) {
+        const allPositions = ev.notes.filter(n => !n.rest).map(n => pitchToStaffPos(n.step, n.octave, clef));
+        const myIdx = ev.notes.filter(n => !n.rest).indexOf(note);
+        // Check if adjacent note is a second (1 staff position apart)
+        for (let oi = 0; oi < allPositions.length; oi++) {
+          if (oi !== myIdx && Math.abs(allPositions[oi] - pos) === 1) {
+            // Displace the higher note to the right
+            if (pos > allPositions[oi]) noteXOffset = NHR * 2;
+            break;
+          }
+        }
+      }
+      const noteEx = ex + noteXOffset;
+
       const g = mk('g',{style:'cursor:pointer',fill:clr,stroke:clr, class: isSel ? 'note-selected' : ''});
 
       // Ledger lines
-      drawLedgers(g, ex, ny, staffY);
+      drawLedgers(g, noteEx, ny, staffY);
 
       // Note head
       const filled = !['whole','half'].includes(ev.dur);
-      g.appendChild(mk('ellipse',{cx:ex,cy:ny,rx:NHR,ry:NHY,fill:filled?clr:'none',stroke:clr,'stroke-width':1.4,transform:`rotate(-15,${ex},${ny})`}));
+      g.appendChild(mk('ellipse',{cx:noteEx,cy:ny,rx:NHR,ry:NHY,fill:filled?clr:'none',stroke:clr,'stroke-width':1.4,transform:`rotate(-15,${noteEx},${ny})`}));
 
       // Stem
       if (ev.dur !== 'whole') {
@@ -1002,23 +1072,28 @@ function renderStaffEvents(svg, events, mx, mw, staffY, clef, mi, meas) {
       // Dot
       if (note.dot) {
         const dotY = pos % 2 === 0 ? ny - (SLS/4) : ny;
-        g.appendChild(mk('circle',{cx:ex+NHR+5,cy:dotY-1,r:1.8,fill:clr}));
+        g.appendChild(mk('circle',{cx:noteEx+NHR+5,cy:dotY-1,r:1.8,fill:clr}));
       }
 
       // Accidental
       if (note.accidental) {
         const sym = {sharp:'♯',flat:'♭',natural:'♮',dblsharp:'𝄪',dblflat:'𝄫'}[note.accidental]||'';
         if (sym) {
-          const a = mk('text',{x:ex-NHR-11,y:ny+5,'font-size':15,fill:clr,'text-anchor':'middle'});
+          const a = mk('text',{x:noteEx-NHR-11,y:ny+5,'font-size':15,fill:clr,'text-anchor':'middle'});
           a.textContent = sym; g.appendChild(a);
         }
       }
 
       // Tie arc
       if (note.tie) {
-        // Find next event with matching pitch
-        const nextEx = ex + spacing;
-        const tieDir = pos >= 4 ? 1 : -1; // curve direction
+        // Find the next event's X position
+        const nextEvIdx = localIdx + 1;
+        let nextEx = ex + usableW * 0.15; // default fallback
+        if (nextEvIdx < events.length) {
+          const nextRoundedPos = Math.round(events[nextEvIdx].pos * 1000) / 1000;
+          nextEx = posXMap.get(nextRoundedPos) || nextEx;
+        }
+        const tieDir = pos >= 4 ? 1 : -1;
         const cpY = ny + tieDir * 12;
         g.appendChild(mk('path',{
           d:`M${ex+NHR},${ny+tieDir*4}Q${(ex+nextEx)/2},${cpY} ${nextEx-NHR},${ny+tieDir*4}`,
@@ -1093,7 +1168,7 @@ function renderStaffEvents(svg, events, mx, mw, staffY, clef, mi, meas) {
             S.measures[mi].barline = selSymbol.value;
           } else {
             if (!S.measures[mi].symbols) S.measures[mi].symbols = [];
-            const relPos = (localIdx + 1) / (events.length + 1);
+            const relPos = beatCap > 0 ? ev.pos / beatCap : 0.5;
             S.measures[mi].symbols.push({...selSymbol, position: relPos, clef});
           }
           render();
@@ -1241,62 +1316,121 @@ function drawBarline(svg, x, tY, bY, type, isLast) {
 
 function renderSyms(svg, syms, mx, mw, tY, bY, mi) {
   if (!syms || !syms.length) return;
+
+  // Separate symbols by type for vertical layering
+  const dynamics = [];
+  const wedges = [];
+  const expressions = [];
+  const pedals = [];
+  const techniques = [];
+  const repeats = [];
+
   syms.forEach((s, si) => {
+    const entry = {...s, _si: si};
+    if (s.type === 'dynamic') dynamics.push(entry);
+    else if (s.type === 'wedge') wedges.push(entry);
+    else if (s.type === 'expr') expressions.push(entry);
+    else if (s.type === 'pedal') pedals.push(entry);
+    else if (s.type === 'technique') techniques.push(entry);
+    else if (s.type === 'repeat') repeats.push(entry);
+  });
+
+  const belowStaffBase = bY + 4*SLS;
+
+  // Layer 1: Dynamics (Y = belowStaffBase + 16)
+  dynamics.forEach((s, i) => {
+    const x = mx + (s.position || .5) * mw;
+    const y = belowStaffBase + 16;
+    const g = mk('g',{style:'cursor:pointer'});
+    const t = mk('text',{x,y,'text-anchor':'middle','font-size':13,'font-style':'italic','font-weight':'bold',fill:'#1a1510','font-family':"'Playfair Display',serif"});
+    t.textContent = s.value; g.appendChild(t);
+    addSymClickHandler(g, mi, s._si);
+    svg.appendChild(g);
+  });
+
+  // Layer 2: Hairpins/Wedges (Y = belowStaffBase + 16, same as dynamics but typically different X)
+  wedges.forEach((s) => {
+    const x = mx + (s.position || .3) * mw;
+    const wy = belowStaffBase + 14;
+    const g = mk('g',{style:'cursor:pointer'});
+    const wl = (s.length || .3) * mw;
+    if (s.value === 'crescendo') {
+      g.appendChild(mk('path',{d:`M${x},${wy}L${x+wl},${wy-5}M${x},${wy}L${x+wl},${wy+5}`,fill:'none',stroke:'#1a1510','stroke-width':1.1}));
+    } else if (s.value === 'diminuendo') {
+      g.appendChild(mk('path',{d:`M${x},${wy-5}L${x+wl},${wy}M${x},${wy+5}L${x+wl},${wy}`,fill:'none',stroke:'#1a1510','stroke-width':1.1}));
+    } else if (s.value === 'stop') {
+      g.appendChild(mk('line',{x1:x,y1:wy-6,x2:x,y2:wy+6,stroke:'#1a1510','stroke-width':1.3}));
+    }
+    addSymClickHandler(g, mi, s._si);
+    svg.appendChild(g);
+  });
+
+  // Layer 3: Expressions (Y = belowStaffBase + 28, stacked if multiple)
+  expressions.forEach((s, i) => {
+    const x = mx + (s.position || .5) * mw;
+    const y = belowStaffBase + 28 + i * 12;
+    const g = mk('g',{style:'cursor:pointer'});
+    // Skip empty/whitespace-only or icon-font text
+    const displayText = s.value.replace(/[\ue000-\uf8ff]/g, '').trim();
+    if (!displayText) return;
+    const t = mk('text',{x,y,'text-anchor':'middle','font-size':10,'font-style':'italic',fill:'#555','font-family':"'Source Sans 3',sans-serif"});
+    t.textContent = displayText; g.appendChild(t);
+    addSymClickHandler(g, mi, s._si);
+    svg.appendChild(g);
+  });
+
+  // Layer 4: Pedal markings (Y = belowStaffBase + 42, stacked)
+  pedals.forEach((s, i) => {
+    const x = mx + (s.position || .5) * mw;
+    const y = belowStaffBase + 42 + i * 12;
+    const g = mk('g',{style:'cursor:pointer'});
+    const sym = {start:'Ped.',stop:'✱',sostenuto:'Sost.','una-corda':'u.c.','tre-corde':'t.c.'}[s.value] || s.value;
+    const t = mk('text',{x,y,'text-anchor':'middle','font-size':11,'font-style':'italic',fill:'#1a1510','font-family':"'Playfair Display',serif"});
+    t.textContent = sym; g.appendChild(t);
+    addSymClickHandler(g, mi, s._si);
+    svg.appendChild(g);
+  });
+
+  // Layer 5: Technique markings above treble staff
+  techniques.forEach((s, i) => {
+    const x = mx + (s.position || .3) * mw;
+    const ty = tY - 14 - i * 14;
+    const g = mk('g',{style:'cursor:pointer'});
+    const t = mk('text',{x,y:ty,'text-anchor':'middle','font-size':11,'font-style':'italic',fill:'#1a1510'});
+    t.textContent = s.value; g.appendChild(t);
+    if (['8va','8vb','15ma'].includes(s.value)) {
+      g.appendChild(mk('line',{x1:x+18,y1:ty-2,x2:x+(s.length||.4)*mw,y2:ty-2,stroke:'#1a1510','stroke-width':.7,'stroke-dasharray':'3 2'}));
+    }
+    addSymClickHandler(g, mi, s._si);
+    svg.appendChild(g);
+  });
+
+  // Layer 6: Repeat/structure markings above treble staff
+  repeats.forEach((s) => {
     const x = mx + (s.position || .5) * mw;
     const g = mk('g',{style:'cursor:pointer'});
-
-    if (s.type === 'dynamic') {
-      const t = mk('text',{x,y:bY+4*SLS+22,'text-anchor':'middle','font-size':13,'font-style':'italic','font-weight':'bold',fill:'#1a1510','font-family':"'Playfair Display',serif"});
-      t.textContent = s.value; g.appendChild(t);
-    } else if (s.type === 'wedge') {
-      const wy = bY + 4*SLS + 18;
-      const wl = (s.length || .3) * mw;
-      if (s.value === 'crescendo') {
-        g.appendChild(mk('path',{d:`M${x},${wy}L${x+wl},${wy-5}M${x},${wy}L${x+wl},${wy+5}`,fill:'none',stroke:'#1a1510','stroke-width':1.1}));
-      } else if (s.value === 'diminuendo') {
-        g.appendChild(mk('path',{d:`M${x},${wy-5}L${x+wl},${wy}M${x},${wy+5}L${x+wl},${wy}`,fill:'none',stroke:'#1a1510','stroke-width':1.1}));
-      } else if (s.value === 'stop') {
-        // Wedge stop is just a vertical termination line for hairpins
-        g.appendChild(mk('line',{x1:x,y1:wy-6,x2:x,y2:wy+6,stroke:'#1a1510','stroke-width':1.3}));
-      }
-    } else if (s.type === 'pedal') {
-      const py = bY + 4*SLS + 32;
-      const sym = {start:'Ped.',stop:'✱',sostenuto:'Sost.','una-corda':'u.c.','tre-corde':'t.c.'}[s.value] || s.value;
-      const t = mk('text',{x,y:py,'text-anchor':'middle','font-size':12,'font-style':'italic',fill:'#1a1510','font-family':"'Playfair Display',serif"});
+    const isSym = ['segno','coda'].includes(s.value);
+    if (isSym) {
+      const sym = s.value === 'segno' ? '𝄋' : '𝄌';
+      const t = mk('text',{x,y:tY-12,'text-anchor':'middle','font-size':22,fill:'#1a1510'});
       t.textContent = sym; g.appendChild(t);
-    } else if (s.type === 'technique') {
-      const ty = tY - 14;
-      const t = mk('text',{x,y:ty,'text-anchor':'middle','font-size':11,'font-style':'italic',fill:'#1a1510'});
+    } else {
+      const t = mk('text',{x,y:tY-12,'text-anchor':'middle','font-size':11,'font-style':'italic','font-weight':'bold',fill:'#1a1510'});
       t.textContent = s.value; g.appendChild(t);
-      if (['8va','8vb','15ma'].includes(s.value)) {
-        g.appendChild(mk('line',{x1:x+18,y1:ty-2,x2:x+(s.length||.4)*mw,y2:ty-2,stroke:'#1a1510','stroke-width':.7,'stroke-dasharray':'3 2'}));
-      }
-    } else if (s.type === 'expr') {
-      const t = mk('text',{x,y:bY+4*SLS+18,'text-anchor':'middle','font-size':11,'font-style':'italic',fill:'#555'});
-      t.textContent = s.value; g.appendChild(t);
-    } else if (s.type === 'repeat') {
-      const isSym = ['segno','coda'].includes(s.value);
-      if (isSym) {
-        const sym = s.value === 'segno' ? '𝄋' : '𝄌';
-        const t = mk('text',{x,y:tY-12,'text-anchor':'middle','font-size':22,fill:'#1a1510'});
-        t.textContent = sym; g.appendChild(t);
-      } else {
-        const t = mk('text',{x,y:tY-12,'text-anchor':'middle','font-size':11,'font-style':'italic','font-weight':'bold',fill:'#1a1510'});
-        t.textContent = s.value; g.appendChild(t);
-      }
     }
-
-    // Click to delete symbol with erase tool
-    g.addEventListener('click', e => {
-      e.stopPropagation();
-      if (tool === 'erase') {
-        pushUndo();
-        S.measures[mi].symbols.splice(si, 1);
-        render();
-      }
-    });
-
+    addSymClickHandler(g, mi, s._si);
     svg.appendChild(g);
+  });
+}
+
+function addSymClickHandler(g, mi, si) {
+  g.addEventListener('click', e => {
+    e.stopPropagation();
+    if (tool === 'erase') {
+      pushUndo();
+      S.measures[mi].symbols.splice(si, 1);
+      render();
+    }
   });
 }
 
@@ -1621,20 +1755,66 @@ document.getElementById('fileInput').addEventListener('change', async function(e
 });
 
 function extractMXL(data) {
-  let pos = 0;
-  const files = [];
-  while (pos < data.length - 4) {
-    const sig = data[pos] | (data[pos+1]<<8) | (data[pos+2]<<16) | (data[pos+3]<<24);
-    if (sig !== 0x04034b50) { pos++; continue; }
+  // ── STEP 1: Parse the Central Directory to get accurate file sizes ──
+  // The Central Directory is at the end of the ZIP and always has correct sizes,
+  // even when local file headers use data descriptors (bit 3 flag) with sizes=0.
 
-    const dv = new DataView(data.buffer, data.byteOffset + pos);
-    const method = dv.getUint16(8, true);
-    const compSize = dv.getUint32(18, true);
-    const uncompSize = dv.getUint32(22, true);
-    const nameLen = dv.getUint16(26, true);
-    const extraLen = dv.getUint16(28, true);
-    const name = new TextDecoder().decode(data.slice(pos+30, pos+30+nameLen));
-    const dataStart = pos + 30 + nameLen + extraLen;
+  const cdEntries = new Map(); // filename → {compSize, uncompSize, method, localOffset}
+
+  // Find End of Central Directory record (scan backwards)
+  let eocdPos = -1;
+  for (let i = data.length - 22; i >= 0; i--) {
+    if (data[i] === 0x50 && data[i+1] === 0x4b && data[i+2] === 0x05 && data[i+3] === 0x06) {
+      eocdPos = i; break;
+    }
+  }
+
+  if (eocdPos >= 0) {
+    const eocdView = new DataView(data.buffer, data.byteOffset + eocdPos);
+    const cdSize = eocdView.getUint32(12, true);
+    const cdOffset = eocdView.getUint32(16, true);
+
+    // Parse Central Directory entries
+    let cdPos = cdOffset;
+    while (cdPos < cdOffset + cdSize && cdPos + 46 <= data.length) {
+      const cdSig = data[cdPos] | (data[cdPos+1]<<8) | (data[cdPos+2]<<16) | (data[cdPos+3]<<24);
+      if (cdSig !== 0x02014b50) break;
+
+      const cdView = new DataView(data.buffer, data.byteOffset + cdPos);
+      const cdMethod = cdView.getUint16(10, true);
+      const cdCompSize = cdView.getUint32(20, true);
+      const cdUncompSize = cdView.getUint32(24, true);
+      const cdNameLen = cdView.getUint16(28, true);
+      const cdExtraLen = cdView.getUint16(30, true);
+      const cdCommentLen = cdView.getUint16(32, true);
+      const cdLocalOffset = cdView.getUint32(42, true);
+      const cdName = new TextDecoder().decode(data.slice(cdPos + 46, cdPos + 46 + cdNameLen));
+
+      cdEntries.set(cdName, { compSize: cdCompSize, uncompSize: cdUncompSize, method: cdMethod, localOffset: cdLocalOffset });
+      cdPos += 46 + cdNameLen + cdExtraLen + cdCommentLen;
+    }
+  }
+
+  // ── STEP 2: Extract files using Central Directory sizes ──
+  const files = [];
+
+  for (const [name, info] of cdEntries) {
+    const pos = info.localOffset;
+    if (pos + 30 > data.length) continue;
+
+    const localSig = data[pos] | (data[pos+1]<<8) | (data[pos+2]<<16) | (data[pos+3]<<24);
+    if (localSig !== 0x04034b50) continue;
+
+    const localView = new DataView(data.buffer, data.byteOffset + pos);
+    const localNameLen = localView.getUint16(26, true);
+    const localExtraLen = localView.getUint16(28, true);
+    const dataStart = pos + 30 + localNameLen + localExtraLen;
+
+    // Use sizes from Central Directory (always accurate)
+    const compSize = info.compSize;
+    const method = info.method;
+
+    if (dataStart + compSize > data.length) continue;
     const rawData = data.slice(dataStart, dataStart + compSize);
 
     let fileContent;
@@ -1642,16 +1822,76 @@ function extractMXL(data) {
       fileContent = rawData;
     } else if (method === 8) {
       try { fileContent = pako.inflateRaw(rawData); }
-      catch(e) { try { fileContent = pako.inflate(rawData); } catch(e2) { pos = dataStart + compSize; continue; } }
+      catch(e) {
+        try { fileContent = pako.inflate(rawData); }
+        catch(e2) { console.warn('Failed to decompress:', name); continue; }
+      }
     } else {
-      pos = dataStart + compSize; continue;
+      continue; // unsupported method
     }
 
-    files.push({name, content: new TextDecoder().decode(fileContent)});
-    pos = dataStart + compSize;
+    files.push({ name, content: new TextDecoder().decode(fileContent) });
   }
 
-  // Find root file from container.xml
+  // ── STEP 3: Fallback — scan local headers if Central Directory failed ──
+  if (files.length === 0) {
+    let pos = 0;
+    while (pos < data.length - 4) {
+      const sig = data[pos] | (data[pos+1]<<8) | (data[pos+2]<<16) | (data[pos+3]<<24);
+      if (sig !== 0x04034b50) { pos++; continue; }
+
+      const dv = new DataView(data.buffer, data.byteOffset + pos);
+      const flags = dv.getUint16(6, true);
+      const method = dv.getUint16(8, true);
+      let compSize = dv.getUint32(18, true);
+      const nameLen = dv.getUint16(26, true);
+      const extraLen = dv.getUint16(28, true);
+      const name = new TextDecoder().decode(data.slice(pos+30, pos+30+nameLen));
+      const dataStart = pos + 30 + nameLen + extraLen;
+
+      // If data descriptor flag is set and sizes are 0, scan for next header
+      if ((flags & 0x08) && compSize === 0) {
+        let scanPos = dataStart;
+        while (scanPos < data.length - 4) {
+          const nextSig = data[scanPos] | (data[scanPos+1]<<8) | (data[scanPos+2]<<16) | (data[scanPos+3]<<24);
+          if (nextSig === 0x04034b50 || nextSig === 0x02014b50 || nextSig === 0x08074b50) {
+            // If data descriptor signature, skip 4 bytes for signature
+            if (nextSig === 0x08074b50) {
+              compSize = scanPos - dataStart;
+            } else {
+              compSize = scanPos - dataStart;
+            }
+            break;
+          }
+          scanPos++;
+        }
+        if (compSize === 0) compSize = data.length - dataStart;
+      }
+
+      if (dataStart + compSize > data.length) { pos++; continue; }
+      const rawData = data.slice(dataStart, dataStart + compSize);
+
+      let fileContent;
+      if (method === 0) {
+        fileContent = rawData;
+      } else if (method === 8) {
+        try { fileContent = pako.inflateRaw(rawData); }
+        catch(e) {
+          try { fileContent = pako.inflate(rawData); }
+          catch(e2) { pos = dataStart + compSize; continue; }
+        }
+      } else {
+        pos = dataStart + compSize; continue;
+      }
+
+      files.push({ name, content: new TextDecoder().decode(fileContent) });
+      pos = dataStart + compSize;
+      // Skip data descriptor if present
+      if (flags & 0x08) pos += 12; // skip crc32 + compSize + uncompSize
+    }
+  }
+
+  // ── STEP 4: Find the MusicXML file ──
   const container = files.find(f => f.name.includes('container.xml'));
   let rootPath = null;
   if (container) {
@@ -1667,7 +1907,7 @@ function extractMXL(data) {
   const xmlFile = files.find(f => (f.name.endsWith('.xml') || f.name.endsWith('.musicxml')) && !f.name.includes('META-INF'));
   if (xmlFile) return xmlFile.content;
 
-  throw new Error('No MusicXML found in MXL archive');
+  throw new Error('No MusicXML found in MXL archive (' + files.length + ' files extracted)');
 }
 
 function parseMXL(xmlStr) {
@@ -1806,37 +2046,44 @@ function parseMXL(xmlStr) {
         if (durEl) curPos += parseInt(durEl.textContent);
 
       } else if (ch.tagName === 'direction') {
+        // Calculate position from current beat position
+        const beatCap = S.timeSig[0] * (4 / S.timeSig[1]);
+        const relPosition = beatCap > 0 ? Math.max(0.02, Math.min(0.98, (curPos / divisions) / beatCap)) : 0.5;
+
         const dynEl = ch.querySelector('dynamics');
         if (dynEl && dynEl.firstElementChild) {
-          measure.symbols.push({type:'dynamic', value:dynEl.firstElementChild.tagName, position:.5});
+          measure.symbols.push({type:'dynamic', value:dynEl.firstElementChild.tagName, position:relPosition});
         }
         const wedgeEl = ch.querySelector('wedge');
         if (wedgeEl) {
           const wt2 = wedgeEl.getAttribute('type');
           if (wt2 === 'crescendo' || wt2 === 'diminuendo') {
-            measure.symbols.push({type:'wedge', value:wt2, position:.2, length:.5});
+            measure.symbols.push({type:'wedge', value:wt2, position:relPosition, length:.35});
           } else if (wt2 === 'stop') {
-            measure.symbols.push({type:'wedge', value:'stop', position:.8});
+            measure.symbols.push({type:'wedge', value:'stop', position:relPosition});
           }
         }
         const pedEl = ch.querySelector('pedal');
         if (pedEl) {
-          measure.symbols.push({type:'pedal', value:pedEl.getAttribute('type'), position:.5});
+          measure.symbols.push({type:'pedal', value:pedEl.getAttribute('type'), position:relPosition});
         }
         const wordsEls = ch.querySelectorAll('words');
         wordsEls.forEach(w => {
           const txt = w.textContent.trim();
-          if (txt) measure.symbols.push({type:'expr', value:txt, position:.5});
+          // Filter out empty text, icon-font-only text, and numeric-only tempo changes
+          if (txt && txt.replace(/[\ue000-\uf8ff\u0000-\u001f]/g, '').trim().length > 0) {
+            measure.symbols.push({type:'expr', value:txt.replace(/[\ue000-\uf8ff]/g, '').trim(), position:relPosition});
+          }
         });
         const segEl = ch.querySelector('segno');
-        if (segEl) measure.symbols.push({type:'repeat', value:'segno', position:.5});
+        if (segEl) measure.symbols.push({type:'repeat', value:'segno', position:relPosition});
         const codEl = ch.querySelector('coda');
-        if (codEl) measure.symbols.push({type:'repeat', value:'coda', position:.5});
+        if (codEl) measure.symbols.push({type:'repeat', value:'coda', position:relPosition});
         const octEl = ch.querySelector('octave-shift');
         if (octEl) {
           const ot = octEl.getAttribute('type'), os = octEl.getAttribute('size') || '8';
           let v2 = ot === 'up' ? (os === '15' ? '15ma' : '8va') : '8vb';
-          if (ot !== 'stop') measure.symbols.push({type:'technique', value:v2, position:.3, length:.4});
+          if (ot !== 'stop') measure.symbols.push({type:'technique', value:v2, position:relPosition, length:.4});
         }
       }
     }
@@ -1863,6 +2110,47 @@ function parseMXL(xmlStr) {
     });
 
     S.measures.push(measure);
+  });
+
+  // POST-PROCESSING: Merge events at the same beat position on the same staff
+  // This prevents visual overlap from multi-voice notation
+  S.measures.forEach(m => {
+    const merged = [];
+    const byKey = new Map(); // key = "staff:roundedPos"
+
+    m.events.forEach(ev => {
+      const key = `${ev.staff}:${Math.round(ev.pos * 10000)}`;
+      if (byKey.has(key)) {
+        // Merge notes into existing event
+        const existing = byKey.get(key);
+        ev.notes.forEach(n => {
+          // Skip if duplicate pitch already exists
+          if (n.rest) return; // skip rests from secondary voices
+          const dup = existing.notes.find(en => !en.rest && en.step === n.step && en.octave === n.octave);
+          if (!dup) existing.notes.push(n);
+        });
+        // Use the longer duration
+        if ((DUR_VALS[ev.dur] || 1) > (DUR_VALS[existing.dur] || 1)) {
+          existing.dur = ev.dur;
+        }
+      } else {
+        byKey.set(key, ev);
+        merged.push(ev);
+      }
+    });
+
+    // Sort notes within each event by pitch (low to high)
+    merged.forEach(ev => {
+      ev.notes.sort((a, b) => {
+        if (a.rest && b.rest) return 0;
+        if (a.rest) return -1;
+        if (b.rest) return 1;
+        return pitchToMidi(a.step, a.octave, a.alter||0) - pitchToMidi(b.step, b.octave, b.alter||0);
+      });
+    });
+
+    m.events = merged;
+    m.events.sort((a, b) => a.pos - b.pos || a.staff - b.staff);
   });
 
   // Update UI
@@ -1998,6 +2286,7 @@ function doPlay() {
   if (playing) { doStop(); return; }
   playing = true;
   activeOscillators = [];
+  playbackTimers = [];
   document.getElementById('playBtn').classList.add('playing');
   document.getElementById('playBtn').innerHTML = '⏸ Pause';
   document.getElementById('sPlay').textContent = 'Playing...';
@@ -2005,18 +2294,26 @@ function doPlay() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') audioCtx.resume();
 
+  const svg = document.getElementById('scoreSvg');
   const bpm = S.tempo, bd = 60 / bpm;
-  let t = audioCtx.currentTime + 0.1;
+  const baseTime = audioCtx.currentTime + 0.15;
+  let t = baseTime;
 
-  S.measures.forEach(m => {
+  // ── Build playback timeline with visual coordinates ──
+  const timeline = []; // {audioTime, mi, pos, dur(beats), eventsAtPos}
+
+  S.measures.forEach((m, mi) => {
     const beatCap = getMeasureBeatCapacity();
-    if (!m.events.length) { t += beatCap * bd; return; }
+    const startT = t;
 
-    const sorted = [...m.events].sort((a,b) => a.pos - b.pos);
-    let processedPositions = new Set();
-    let lastEndTime = t;
+    if (!m.events.length) {
+      t += beatCap * bd;
+      return;
+    }
 
-    // Group events by position
+    const sorted = [...m.events].sort((a, b) => a.pos - b.pos);
+
+    // Group by position
     const byPos = {};
     sorted.forEach(ev => {
       const k = ev.pos.toFixed(4);
@@ -2024,29 +2321,176 @@ function doPlay() {
       byPos[k].push(ev);
     });
 
-    const positions = Object.keys(byPos).map(Number).sort((a,b) => a - b);
-    const startT = t;
+    const positions = Object.keys(byPos).map(Number).sort((a, b) => a - b);
 
     positions.forEach(pos => {
       const evs = byPos[pos.toFixed(4)];
       const noteTime = startT + pos * bd;
 
+      let maxDur = 0;
       evs.forEach(ev => {
         const dur = (DUR_VALS[ev.dur] || 1) * bd * (ev.notes[0]?.dot ? 1.5 : 1);
+        maxDur = Math.max(maxDur, dur);
         ev.notes.forEach(n => {
           if (n.rest) return;
           const midi = pitchToMidi(n.step, n.octave, n.alter || 0);
           const freq = 440 * Math.pow(2, (midi - 69) / 12);
           playNote(freq, noteTime, dur, ev.staff === 1 ? .22 : .18);
         });
-        lastEndTime = Math.max(lastEndTime, noteTime + dur);
+      });
+
+      timeline.push({
+        audioTime: noteTime,
+        mi,
+        pos,
+        durSec: maxDur,
+        events: evs
       });
     });
 
     t = startT + beatCap * bd;
   });
 
-  playTimer = setTimeout(doStop, (t - audioCtx.currentTime) * 1000 + 300);
+  // ── Schedule visual highlights ──
+  const scoreWrap = document.getElementById('scoreWrap');
+
+  // Pre-compute visual layout info (same logic as renderSystem)
+  function getMeasureVisualInfo(mi) {
+    const effectiveMPS2 = MEAS_W > 350 ? 2 : MEAS_W > 280 ? 3 : MPS;
+    const si = Math.floor(mi / effectiveMPS2);
+    const li = mi - si * effectiveMPS2;
+    const systemY = MARGIN_TOP + si * SYS_GAP;
+    const tY = systemY;
+    const bY = systemY + 4 * SLS + GRAND_GAP;
+
+    // Compute tsOff for first measure of system
+    const kOff = Math.abs(S.keyFifths) * 9 + (S.keyFifths ? 4 : 0);
+    let tsOff = 32 + kOff;
+    if (si === 0) tsOff += 22;
+
+    const mx = MARGIN_L + li * MEAS_W + (li === 0 ? tsOff : 0);
+    const mw = MEAS_W - (li === 0 ? tsOff : 0);
+    return { mx, mw, tY, bY };
+  }
+
+  function getBeatX(mi, beatPos) {
+    const info = getMeasureVisualInfo(mi);
+    const beatCap = getMeasureBeatCapacity();
+    const margin = info.mw * 0.06;
+    const usableW = info.mw - margin * 2;
+    const ratio = beatCap > 0 ? beatPos / beatCap : 0.5;
+    return info.mx + margin + ratio * usableW;
+  }
+
+  // Create playback cursor group
+  const cursorGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  cursorGroup.setAttribute('id', 'playbackCursorGroup');
+  svg.appendChild(cursorGroup);
+
+  timeline.forEach((entry, idx) => {
+    const delayMs = (entry.audioTime - baseTime) * 1000;
+    const durationMs = entry.durSec * 1000;
+
+    const timerId = setTimeout(() => {
+      if (!playing) return;
+
+      // Clear previous highlights
+      clearPlaybackVisuals();
+
+      const x = getBeatX(entry.mi, entry.pos);
+      const vInfo = getMeasureVisualInfo(entry.mi);
+
+      // ── Draw cursor line (vertical line spanning both staves) ──
+      const cursorLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      cursorLine.setAttribute('x1', x);
+      cursorLine.setAttribute('y1', vInfo.tY - 10);
+      cursorLine.setAttribute('x2', x);
+      cursorLine.setAttribute('y2', vInfo.bY + 4 * SLS + 10);
+      cursorLine.setAttribute('stroke', '#e53e3e');
+      cursorLine.setAttribute('stroke-width', '2');
+      cursorLine.setAttribute('opacity', '0.7');
+      cursorLine.setAttribute('class', 'playback-line');
+      cursorGroup.appendChild(cursorLine);
+      playbackHighlights.push(cursorLine);
+
+      // ── Highlight each playing note ──
+      entry.events.forEach(ev => {
+        ev.notes.forEach(n => {
+          if (n.rest) return;
+          const clef = ev.staff === 1 ? 'treble' : 'bass';
+          const staffY = ev.staff === 1 ? vInfo.tY : vInfo.bY;
+          const pos = pitchToStaffPos(n.step, n.octave, clef);
+          const ny = staffPosToY(pos, staffY);
+
+          // Glow circle behind the note
+          const glow = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+          glow.setAttribute('cx', x);
+          glow.setAttribute('cy', ny);
+          glow.setAttribute('rx', NHR + 5);
+          glow.setAttribute('ry', NHY + 4);
+          glow.setAttribute('fill', '#e53e3e');
+          glow.setAttribute('opacity', '0.3');
+          glow.setAttribute('class', 'playback-highlight');
+          glow.style.animation = 'note-glow 0.4s ease-in-out infinite';
+          cursorGroup.appendChild(glow);
+          playbackHighlights.push(glow);
+
+          // Re-color the note head bright
+          const noteHighlight = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+          noteHighlight.setAttribute('cx', x);
+          noteHighlight.setAttribute('cy', ny);
+          noteHighlight.setAttribute('rx', NHR);
+          noteHighlight.setAttribute('ry', NHY);
+          noteHighlight.setAttribute('fill', '#e53e3e');
+          noteHighlight.setAttribute('opacity', '0.85');
+          noteHighlight.setAttribute('transform', `rotate(-15,${x},${ny})`);
+          noteHighlight.setAttribute('class', 'playback-highlight');
+          cursorGroup.appendChild(noteHighlight);
+          playbackHighlights.push(noteHighlight);
+        });
+      });
+
+      // ── Auto-scroll to keep cursor visible ──
+      const svgRect = svg.getBoundingClientRect();
+      const wrapRect = scoreWrap.getBoundingClientRect();
+      const scale = svgRect.width > 0 ? svg.getBoundingClientRect().width / (parseFloat(svg.getAttribute('width')) || 1) : 1;
+      const cursorScreenX = svgRect.left + x * scale;
+      const cursorScreenY = svgRect.top + vInfo.tY * scale;
+
+      // Horizontal scroll
+      if (cursorScreenX > wrapRect.right - 100 || cursorScreenX < wrapRect.left + 100) {
+        const targetScrollX = x * scale - wrapRect.width / 3;
+        scoreWrap.scrollTo({ left: targetScrollX, behavior: 'smooth' });
+      }
+
+      // Vertical scroll
+      if (cursorScreenY > wrapRect.bottom - 60 || cursorScreenY < wrapRect.top + 60) {
+        const targetScrollY = vInfo.tY * scale - 80;
+        scoreWrap.scrollTo({ top: targetScrollY, behavior: 'smooth' });
+      }
+
+      // Update status
+      document.getElementById('sPlay').textContent = `Playing — M${entry.mi + 1}, beat ${(entry.pos + 1).toFixed(1)}`;
+
+    }, Math.max(0, delayMs));
+
+    playbackTimers.push(timerId);
+  });
+
+  // Schedule final cleanup
+  const totalDur = (t - baseTime) * 1000 + 300;
+  const endTimer = setTimeout(() => {
+    doStop();
+  }, totalDur);
+  playbackTimers.push(endTimer);
+  playTimer = endTimer;
+}
+
+function clearPlaybackVisuals() {
+  playbackHighlights.forEach(el => {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  });
+  playbackHighlights = [];
 }
 
 function playNote(freq, start, dur, vol) {
@@ -2103,12 +2547,21 @@ function doStop() {
   playing = false;
   if (playTimer) { clearTimeout(playTimer); playTimer = null; }
 
-  // ACTUALLY STOP all active oscillators
+  // Clear all scheduled visual timers
+  playbackTimers.forEach(id => clearTimeout(id));
+  playbackTimers = [];
+
+  // Stop all active oscillators
   activeOscillators.forEach(osc => {
-    try { osc.stop(0); } catch(e) {} // may already be stopped
+    try { osc.stop(0); } catch(e) {}
     try { osc.disconnect(); } catch(e) {}
   });
   activeOscillators = [];
+
+  // Remove all visual playback elements
+  clearPlaybackVisuals();
+  const cursorGroup = document.getElementById('playbackCursorGroup');
+  if (cursorGroup && cursorGroup.parentNode) cursorGroup.parentNode.removeChild(cursorGroup);
 
   document.getElementById('playBtn').classList.remove('playing');
   document.getElementById('playBtn').innerHTML = '▶ Play';
