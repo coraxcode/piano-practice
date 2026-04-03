@@ -143,7 +143,14 @@ kbd{background:var(--bg2);padding:1px 4px;border-radius:2px;font-family:'JetBrai
     <input type="file" id="fileInput" accept=".mxl,.musicxml,.xml">
     <button onclick="doExportXML()">💾 Export XML</button>
     <button class="btn-primary" onclick="doExportMXL()">💾 Export MXL</button>
-    <button class="btn-play" id="playBtn" onclick="doPlay()">▶ Play</button>
+    <select class="tsel" id="soundSel" onchange="curSound=this.value" style="margin:0 2px;font-size:10px;padding:4px 6px;background:var(--bg2);border:1px solid var(--brd);color:var(--txt2);border-radius:4px">
+      <option value="grand">🎹 Grand Piano</option>
+      <option value="bright">🎹 Bright Piano</option>
+      <option value="electric">🎹 Electric Piano</option>
+      <option value="harpsi">🎹 Harpsichord</option>
+    </select>
+    <button class="btn-play" id="playStartBtn" onclick="doPlay(0)" title="Play from beginning">⏮</button>
+    <button class="btn-play" id="playBtn" onclick="doPlayFromSel()" title="Play (from selection or beginning)">▶ Play</button>
     <button class="btn-stop" onclick="doStop()">■ Stop</button>
     <button onclick="showSettings()">⚙</button>
   </div>
@@ -261,6 +268,14 @@ kbd{background:var(--bg2);padding:1px 4px;border-radius:2px;font-family:'JetBrai
       </div>
       <button class="pbtn" onclick="toggleSelDot()">Toggle Dot</button>
       <button class="pbtn" onclick="toggleSelTie()">Toggle Tie</button>
+      <div style="display:flex;gap:4px;margin-top:4px">
+        <button class="pbtn" onclick="moveSelectedBeat(-1)" style="flex:1">← Beat</button>
+        <button class="pbtn" onclick="moveSelectedBeat(1)" style="flex:1">Beat →</button>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:2px">
+        <button class="pbtn" onclick="moveSelectedPitch(1)" style="flex:1">↑ Pitch</button>
+        <button class="pbtn" onclick="moveSelectedPitch(-1)" style="flex:1">Pitch ↓</button>
+      </div>
       <button class="pbtn danger" onclick="delSelected()">Delete Note</button>
     </div>
     <div class="ps" id="measProps" style="display:none"><div class="ps-t">Measure</div>
@@ -271,6 +286,16 @@ kbd{background:var(--bg2);padding:1px 4px;border-radius:2px;font-family:'JetBrai
       </select>
       <button class="pbtn danger" onclick="clearMeasure()">Clear Measure</button>
     </div>
+    <div class="ps" id="symProps" style="display:none"><div class="ps-t">Selected Symbol</div>
+      <div class="pr"><span class="pr-l">Type</span><span class="pr-v" id="symType">—</span></div>
+      <div class="pr"><span class="pr-l">Value</span><span class="pr-v" id="symVal">—</span></div>
+      <div class="pr"><span class="pr-l">Measure</span><span class="pr-v" id="symMeas">—</span></div>
+      <div style="display:flex;gap:4px;margin-top:4px">
+        <button class="pbtn" onclick="moveSelectedSymbol(-1)" style="flex:1">← Move</button>
+        <button class="pbtn" onclick="moveSelectedSymbol(1)" style="flex:1">Move →</button>
+      </div>
+      <button class="pbtn danger" onclick="delSelectedSymbol()">Delete Symbol</button>
+    </div>
     <div class="ps"><div class="ps-t">Actions</div>
       <button class="pbtn" onclick="addMeasure()">+ Add Measure</button>
       <button class="pbtn" onclick="remMeasure()">− Remove Last</button>
@@ -278,7 +303,7 @@ kbd{background:var(--bg2);padding:1px 4px;border-radius:2px;font-family:'JetBrai
     </div>
     <div class="ps"><div class="ps-t">Shortcuts</div>
       <div style="font-size:9px;color:var(--txt3);line-height:1.9">
-        <div><kbd>1-6</kbd> Durations</div><div><kbd>N</kbd> Note tool</div><div><kbd>S</kbd> Select</div><div><kbd>E</kbd> Erase</div><div><kbd>R</kbd> Rest</div><div><kbd>C</kbd> Chord mode</div><div><kbd>.</kbd> Dot</div><div><kbd>T</kbd> Tie</div><div><kbd>L</kbd> Note Names</div><div><kbd>Del</kbd> Delete</div><div><kbd>Ctrl+Z</kbd> Undo</div><div><kbd>Ctrl+Y</kbd> Redo</div><div><kbd>Space</kbd> Play/Stop</div><div><kbd>↑↓</kbd> Move pitch</div>
+        <div><kbd>1-6</kbd> Durations</div><div><kbd>N</kbd> Note tool</div><div><kbd>S</kbd> Select</div><div><kbd>E</kbd> Erase</div><div><kbd>R</kbd> Rest</div><div><kbd>C</kbd> Chord mode</div><div><kbd>.</kbd> Dot</div><div><kbd>T</kbd> Tie</div><div><kbd>L</kbd> Note Names</div><div><kbd>Del</kbd> Delete</div><div><kbd>Ctrl+Z</kbd> Undo</div><div><kbd>Ctrl+Y</kbd> Redo</div><div><kbd>Space</kbd> Play/Stop</div><div><kbd>↑↓</kbd> Move pitch</div><div><kbd>←→</kbd> Move beat</div><div><kbd>Esc</kbd> Deselect</div>
       </div>
     </div>
   </div>
@@ -390,6 +415,8 @@ let ghostEl = null;
 let playbackTimers = []; // Timers for visual highlight scheduling
 let playbackCursorEl = null; // SVG element for the playback cursor line
 let playbackHighlights = []; // SVG elements for note highlights
+let curSound = 'grand'; // Sound preset: grand, bright, electric, harpsi
+let selSymIdx = null; // Selected symbol: {mi, si}
 
 // ── TOAST ──
 let toastTimer = null;
@@ -418,8 +445,9 @@ function undo() {
   if (!undoStack.length) { toast('Nothing to undo'); return; }
   redoStack.push(JSON.stringify(S));
   S = JSON.parse(undoStack.pop());
-  selNote = null; selMeasure = null;
+  selNote = null; selMeasure = null; selSymIdx = null;
   document.getElementById('noteProps').style.display = 'none';
+  document.getElementById('symProps').style.display = 'none';
   document.getElementById('measProps').style.display = 'none';
   render();
 }
@@ -427,7 +455,7 @@ function redo() {
   if (!redoStack.length) { toast('Nothing to redo'); return; }
   undoStack.push(JSON.stringify(S));
   S = JSON.parse(redoStack.pop());
-  selNote = null; selMeasure = null;
+  selNote = null; selMeasure = null; selSymIdx = null;
   render();
 }
 
@@ -444,6 +472,20 @@ function pickTool(t) {
   document.getElementById('restBtn').classList.toggle('active', t==='rest');
   document.getElementById('sTool').textContent = 'Tool: ' + t[0].toUpperCase() + t.slice(1);
   updateModStatus();
+  updateClickAreaPointerEvents();
+}
+
+// Toggle pointer-events on click overlay rects based on current tool
+function updateClickAreaPointerEvents() {
+  const needForeground = (tool === 'note' || tool === 'rest' || (tool === 'symbol' && selSymbol));
+  // Foreground: only active for note/rest/symbol placement
+  document.querySelectorAll('.staff-click-area').forEach(el => {
+    el.style.pointerEvents = needForeground ? 'all' : 'none';
+  });
+  // Background: active for select/erase (notes on top still get their clicks first)
+  document.querySelectorAll('.measure-bg-click').forEach(el => {
+    el.style.pointerEvents = (tool === 'select' || tool === 'erase') ? 'all' : 'none';
+  });
 }
 
 function pickDur(d) {
@@ -555,6 +597,7 @@ function pickSymbol(type, value, el) {
     document.getElementById('eraseBtn').classList.remove('active');
     document.getElementById('restBtn').classList.remove('active');
     document.getElementById('sTool').textContent = `Symbol: ${value}`;
+    updateClickAreaPointerEvents();
   }
 }
 
@@ -735,6 +778,80 @@ function moveSelectedPitch(dir) {
   showNoteInfo(n, ev, selNote.mi);
 }
 
+// ── MOVE NOTE LEFT/RIGHT (shift beat position) ──
+function moveSelectedBeat(dir) {
+  if (!selNote) return;
+  const m = S.measures[selNote.mi];
+  const ev = m.events[selNote.ei];
+  if (!ev) return;
+  pushUndo();
+
+  const beatCap = getMeasureBeatCapacity();
+  const step = DUR_VALS['16th'] || 0.25; // move by 16th note increments
+  const newPos = ev.pos + dir * step;
+
+  // Clamp: can't go before beat 0 or beyond measure
+  const durVal = (DUR_VALS[ev.dur] || 1) * (ev.notes[0]?.dot ? 1.5 : 1);
+  if (newPos < -0.001 || newPos + durVal > beatCap + 0.001) {
+    toast('Cannot move further');
+    undoStack.pop(); // remove the undo we just pushed
+    return;
+  }
+
+  ev.pos = Math.max(0, newPos);
+  m.events.sort((a,b) => a.pos - b.pos || a.staff - b.staff);
+
+  // Update selNote.ei since sort may have changed index
+  selNote.ei = m.events.indexOf(ev);
+  render();
+  showNoteInfo(ev.notes[selNote.ni||0], ev, selNote.mi);
+}
+
+// ── DELETE SELECTED SYMBOL ──
+function delSelectedSymbol() {
+  if (!selSymIdx) return;
+  pushUndo();
+  const m = S.measures[selSymIdx.mi];
+  if (m && m.symbols && selSymIdx.si < m.symbols.length) {
+    m.symbols.splice(selSymIdx.si, 1);
+  }
+  selSymIdx = null;
+  document.getElementById('symProps').style.display = 'none';
+  render();
+}
+
+// ── MOVE SELECTED SYMBOL (shift horizontal position) ──
+function moveSelectedSymbol(dir) {
+  if (!selSymIdx) return;
+  pushUndo();
+  const m = S.measures[selSymIdx.mi];
+  const sym = m.symbols[selSymIdx.si];
+  if (!sym) return;
+  sym.position = Math.max(0.02, Math.min(0.98, (sym.position || 0.5) + dir * 0.08));
+  render();
+}
+
+// ── SHOW SYMBOL PROPERTIES ──
+function showSymbolInfo(sym, mi, si) {
+  selSymIdx = {mi, si};
+  selNote = null;
+  selMeasure = mi;
+  document.getElementById('noteProps').style.display = 'none';
+  document.getElementById('measProps').style.display = 'none';
+  const sec = document.getElementById('symProps');
+  sec.style.display = 'block';
+  document.getElementById('symType').textContent = sym.type;
+  document.getElementById('symVal').textContent = sym.value;
+  document.getElementById('symMeas').textContent = mi + 1;
+}
+
+// ── PLAY FROM SELECTION OR BEGINNING ──
+function doPlayFromSel() {
+  if (playing) { doStop(); return; }
+  const startMi = selNote ? selNote.mi : (selMeasure != null ? selMeasure : 0);
+  doPlay(startMi);
+}
+
 // ══════════════════════════════════════════════
 //  RENDER ENGINE
 // ══════════════════════════════════════════════
@@ -852,20 +969,38 @@ function renderSystem(svg, si, sy, sm, em, W) {
       svg.appendChild(mk('rect',{x:mx,y:tY-2,width:mw,height:bY+4*SLS-tY+4,fill:'rgba(74,144,217,0.04)',stroke:'rgba(74,144,217,0.15)','stroke-width':1,rx:2}));
     }
 
-    // Events (notes)
-    renderEvents(svg, meas, mx, mw, tY, bY, mi);
+    // LAYER 1: Background click area for measure selection (BEHIND notes)
+    const bgRect = mk('rect',{x:mx,y:tY-25,width:mw,height:bY+4*SLS-tY+50,fill:'transparent',style:'cursor:default','class':'measure-bg-click'});
+    bgRect.addEventListener('click', e => {
+      if (tool === 'select') {
+        e.stopPropagation();
+        selNote = null; selSymIdx = null;
+        selMeasure = mi;
+        document.getElementById('noteProps').style.display = 'none';
+        document.getElementById('symProps').style.display = 'none';
+        showMeasureInfo(mi);
+        render();
+      }
+    });
+    bgRect.style.pointerEvents = (tool === 'select' || tool === 'erase') ? 'all' : 'none';
+    svg.appendChild(bgRect);
 
-    // Symbols
+    // LAYER 2: Notes and symbols (ON TOP of background, clickable for select/erase)
+    renderEvents(svg, meas, mx, mw, tY, bY, mi);
     renderSyms(svg, meas.symbols, mx, mw, tY, bY, mi);
 
-    // Click areas for treble and bass staves
-    const clickRect1 = mk('rect',{x:mx,y:tY-25,width:mw,height:4*SLS+50,fill:'transparent',style:'cursor:crosshair'});
+    // LAYER 3: Foreground click areas for note/rest/symbol placement + ghost preview
+    // These sit ON TOP and only intercept when placing new elements
+    const needForeground = (tool === 'note' || tool === 'rest' || (tool === 'symbol' && selSymbol));
+    const ptrEvents = needForeground ? 'all' : 'none';
+
+    const clickRect1 = mk('rect',{x:mx,y:tY-25,width:mw,height:4*SLS+50,fill:'transparent',style:`cursor:crosshair;pointer-events:${ptrEvents}`,'class':'staff-click-area'});
     clickRect1.addEventListener('click', e => onStaffClick(e, mi, 'treble', mx, mw, tY));
     clickRect1.addEventListener('mousemove', e => onStaffHover(e, mi, 'treble', mx, mw, tY));
     clickRect1.addEventListener('mouseleave', clearGhost);
     svg.appendChild(clickRect1);
 
-    const clickRect2 = mk('rect',{x:mx,y:bY-25,width:mw,height:4*SLS+50,fill:'transparent',style:'cursor:crosshair'});
+    const clickRect2 = mk('rect',{x:mx,y:bY-25,width:mw,height:4*SLS+50,fill:'transparent',style:`cursor:crosshair;pointer-events:${ptrEvents}`,'class':'staff-click-area'});
     clickRect2.addEventListener('click', e => onStaffClick(e, mi, 'bass', mx, mw, bY));
     clickRect2.addEventListener('mousemove', e => onStaffHover(e, mi, 'bass', mx, mw, bY));
     clickRect2.addEventListener('mouseleave', clearGhost);
@@ -1317,6 +1452,14 @@ function drawBarline(svg, x, tY, bY, type, isLast) {
 function renderSyms(svg, syms, mx, mw, tY, bY, mi) {
   if (!syms || !syms.length) return;
 
+  // Helper: add selection highlight to symbol group
+  function maybeHighlightSym(g, si, x, y) {
+    if (selSymIdx && selSymIdx.mi === mi && selSymIdx.si === si) {
+      const hl = mk('rect',{x:x-18,y:y-11,width:36,height:16,rx:3,fill:'#4a90d9',opacity:'0.15',stroke:'#4a90d9','stroke-width':1,'stroke-dasharray':'3 2'});
+      g.insertBefore(hl, g.firstChild);
+    }
+  }
+
   // Separate symbols by type for vertical layering
   const dynamics = [];
   const wedges = [];
@@ -1344,6 +1487,7 @@ function renderSyms(svg, syms, mx, mw, tY, bY, mi) {
     const g = mk('g',{style:'cursor:pointer'});
     const t = mk('text',{x,y,'text-anchor':'middle','font-size':13,'font-style':'italic','font-weight':'bold',fill:'#1a1510','font-family':"'Playfair Display',serif"});
     t.textContent = s.value; g.appendChild(t);
+    maybeHighlightSym(g, s._si, x, y);
     addSymClickHandler(g, mi, s._si);
     svg.appendChild(g);
   });
@@ -1387,6 +1531,7 @@ function renderSyms(svg, syms, mx, mw, tY, bY, mi) {
     const sym = {start:'Ped.',stop:'✱',sostenuto:'Sost.','una-corda':'u.c.','tre-corde':'t.c.'}[s.value] || s.value;
     const t = mk('text',{x,y,'text-anchor':'middle','font-size':11,'font-style':'italic',fill:'#1a1510','font-family':"'Playfair Display',serif"});
     t.textContent = sym; g.appendChild(t);
+    maybeHighlightSym(g, s._si, x, y);
     addSymClickHandler(g, mi, s._si);
     svg.appendChild(g);
   });
@@ -1401,6 +1546,7 @@ function renderSyms(svg, syms, mx, mw, tY, bY, mi) {
     if (['8va','8vb','15ma'].includes(s.value)) {
       g.appendChild(mk('line',{x1:x+18,y1:ty-2,x2:x+(s.length||.4)*mw,y2:ty-2,stroke:'#1a1510','stroke-width':.7,'stroke-dasharray':'3 2'}));
     }
+    maybeHighlightSym(g, s._si, x, ty);
     addSymClickHandler(g, mi, s._si);
     svg.appendChild(g);
   });
@@ -1429,6 +1575,12 @@ function addSymClickHandler(g, mi, si) {
     if (tool === 'erase') {
       pushUndo();
       S.measures[mi].symbols.splice(si, 1);
+      selSymIdx = null;
+      render();
+    } else {
+      // Select this symbol
+      const sym = S.measures[mi].symbols[si];
+      if (sym) showSymbolInfo(sym, mi, si);
       render();
     }
   });
@@ -1439,6 +1591,8 @@ function showNoteInfo(note, ev, mi) {
   const sec = document.getElementById('noteProps');
   sec.style.display = 'block';
   document.getElementById('measProps').style.display = 'none';
+  document.getElementById('symProps').style.display = 'none';
+  selSymIdx = null;
 
   const accSym = note.accidental ? ({sharp:'♯',flat:'♭',natural:'♮',dblsharp:'𝄪',dblflat:'𝄫'}[note.accidental]||'') : '';
   document.getElementById('nPitch').textContent = note.rest ? 'Rest' : `${note.step}${accSym}${note.octave}`;
@@ -1453,6 +1607,8 @@ function showMeasureInfo(mi) {
   const sec = document.getElementById('measProps');
   sec.style.display = 'block';
   document.getElementById('noteProps').style.display = 'none';
+  document.getElementById('symProps').style.display = 'none';
+  selSymIdx = null;
   document.getElementById('mNum').textContent = mi + 1;
   document.getElementById('mBarSel').value = S.measures[mi].barline || 'regular';
 }
@@ -2282,14 +2438,14 @@ function dl(blob, name) {
 // ═══════════════════════════════════════════════
 //  PLAYBACK — with proper stop functionality
 // ═══════════════════════════════════════════════
-function doPlay() {
+function doPlay(startMeasure = 0) {
   if (playing) { doStop(); return; }
   playing = true;
   activeOscillators = [];
   playbackTimers = [];
   document.getElementById('playBtn').classList.add('playing');
   document.getElementById('playBtn').innerHTML = '⏸ Pause';
-  document.getElementById('sPlay').textContent = 'Playing...';
+  document.getElementById('sPlay').textContent = startMeasure > 0 ? `Playing from M${startMeasure + 1}...` : 'Playing...';
 
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -2304,6 +2460,10 @@ function doPlay() {
 
   S.measures.forEach((m, mi) => {
     const beatCap = getMeasureBeatCapacity();
+
+    // Skip measures before startMeasure (don't schedule audio, don't add time)
+    if (mi < startMeasure) return;
+
     const startT = t;
 
     if (!m.events.length) {
@@ -2493,54 +2653,100 @@ function clearPlaybackVisuals() {
   playbackHighlights = [];
 }
 
+// ── SOUND PRESETS ──
+// Each preset defines oscillators, harmonics, envelope, and filter settings
+const SOUND_PRESETS = {
+  grand: {
+    name: 'Grand Piano',
+    oscillators: [
+      { type: 'triangle', detune: 0, gain: 1.0 },
+      { type: 'sine', freqMult: 2, gain: 0.12 },
+      { type: 'sine', freqMult: 3, gain: 0.04 },
+    ],
+    filter: { type: 'lowpass', freqMult: 4, maxFreq: 4000, Q: 1 },
+    envelope: { attack: 0.005, hold: 0.1, decayRatio: 0.8, release: 0.95 },
+  },
+  bright: {
+    name: 'Bright Piano',
+    oscillators: [
+      { type: 'sawtooth', detune: 0, gain: 0.35 },
+      { type: 'triangle', detune: 3, gain: 0.5 },
+      { type: 'sine', freqMult: 4, gain: 0.08 },
+    ],
+    filter: { type: 'lowpass', freqMult: 6, maxFreq: 8000, Q: 0.7 },
+    envelope: { attack: 0.003, hold: 0.05, decayRatio: 0.75, release: 0.9 },
+  },
+  electric: {
+    name: 'Electric Piano',
+    oscillators: [
+      { type: 'sine', detune: 0, gain: 0.8 },
+      { type: 'sine', freqMult: 2, gain: 0.5 },
+      { type: 'sine', freqMult: 3.5, gain: 0.15 },
+      { type: 'triangle', freqMult: 0.5, gain: 0.1 },
+    ],
+    filter: { type: 'lowpass', freqMult: 3, maxFreq: 3000, Q: 2.5 },
+    envelope: { attack: 0.002, hold: 0.15, decayRatio: 0.6, release: 0.85 },
+  },
+  harpsi: {
+    name: 'Harpsichord',
+    oscillators: [
+      { type: 'sawtooth', detune: 0, gain: 0.3 },
+      { type: 'square', freqMult: 2, gain: 0.15 },
+      { type: 'sawtooth', freqMult: 3, gain: 0.08 },
+    ],
+    filter: { type: 'lowpass', freqMult: 8, maxFreq: 10000, Q: 0.5 },
+    envelope: { attack: 0.001, hold: 0.02, decayRatio: 0.5, release: 0.7 },
+  },
+};
+
 function playNote(freq, start, dur, vol) {
   if (!audioCtx || !playing) return;
 
-  const o1 = audioCtx.createOscillator();
-  const o2 = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  const g2 = audioCtx.createGain();
-  const f = audioCtx.createBiquadFilter();
+  const preset = SOUND_PRESETS[curSound] || SOUND_PRESETS.grand;
+  const env = preset.envelope;
+  const flt = preset.filter;
 
-  o1.type = 'triangle';
-  o1.frequency.setValueAtTime(freq, start);
-  o2.type = 'sine';
-  o2.frequency.setValueAtTime(freq * 2, start);
-  g2.gain.setValueAtTime(0.12, start);
+  // Master gain with envelope
+  const masterGain = audioCtx.createGain();
+  masterGain.gain.setValueAtTime(0, start);
+  masterGain.gain.linearRampToValueAtTime(vol, start + env.attack);
+  masterGain.gain.setValueAtTime(vol * env.decayRatio, start + env.attack + dur * env.hold);
+  masterGain.gain.exponentialRampToValueAtTime(0.001, start + dur * env.release);
 
-  f.type = 'lowpass';
-  f.frequency.setValueAtTime(Math.min(freq * 4, 4000), start);
+  // Filter
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = flt.type;
+  filter.frequency.setValueAtTime(Math.min(freq * flt.freqMult, flt.maxFreq), start);
+  filter.Q.setValueAtTime(flt.Q, start);
 
-  g.gain.setValueAtTime(0, start);
-  g.gain.linearRampToValueAtTime(vol, start + 0.005);
-  g.gain.setValueAtTime(vol * 0.8, start + dur * 0.1);
-  g.gain.exponentialRampToValueAtTime(0.001, start + dur * 0.95);
+  filter.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
 
-  o1.connect(f);
-  o2.connect(g2);
-  g2.connect(f);
-  f.connect(g);
-  g.connect(audioCtx.destination);
+  // Create oscillators from preset
+  preset.oscillators.forEach(oscDef => {
+    const osc = audioCtx.createOscillator();
+    osc.type = oscDef.type;
 
-  o1.start(start);
-  o1.stop(start + dur);
-  o2.start(start);
-  o2.stop(start + dur);
+    const oscFreq = oscDef.freqMult ? freq * oscDef.freqMult : freq;
+    osc.frequency.setValueAtTime(oscFreq, start);
+    if (oscDef.detune) osc.detune.setValueAtTime(oscDef.detune, start);
 
-  // Track for stopping
-  activeOscillators.push(o1, o2);
+    const oscGain = audioCtx.createGain();
+    oscGain.gain.setValueAtTime(oscDef.gain, start);
 
-  // Cleanup
-  o1.onended = () => {
-    const i1 = activeOscillators.indexOf(o1);
-    if (i1 >= 0) activeOscillators.splice(i1, 1);
-    try { o1.disconnect(); } catch(e) {}
-  };
-  o2.onended = () => {
-    const i2 = activeOscillators.indexOf(o2);
-    if (i2 >= 0) activeOscillators.splice(i2, 1);
-    try { o2.disconnect(); } catch(e) {}
-  };
+    osc.connect(oscGain);
+    oscGain.connect(filter);
+
+    osc.start(start);
+    osc.stop(start + dur);
+
+    activeOscillators.push(osc);
+    osc.onended = () => {
+      const idx = activeOscillators.indexOf(osc);
+      if (idx >= 0) activeOscillators.splice(idx, 1);
+      try { osc.disconnect(); } catch(e) {}
+    };
+  });
 }
 
 function doStop() {
@@ -2645,11 +2851,23 @@ document.addEventListener('keydown', e => {
   else if (k === 'ArrowUp' && selNote) { e.preventDefault(); moveSelectedPitch(1); }
   else if (k === 'ArrowDown' && selNote) { e.preventDefault(); moveSelectedPitch(-1); }
 
+  // Move selected note/symbol left/right (beat position)
+  else if (k === 'ArrowLeft' && selNote) { e.preventDefault(); moveSelectedBeat(-1); }
+  else if (k === 'ArrowRight' && selNote) { e.preventDefault(); moveSelectedBeat(1); }
+  else if (k === 'ArrowLeft' && selSymIdx) { e.preventDefault(); moveSelectedSymbol(-1); }
+  else if (k === 'ArrowRight' && selSymIdx) { e.preventDefault(); moveSelectedSymbol(1); }
+
+  // Delete selected symbol
+  else if ((k === 'Delete' || k === 'Backspace') && selSymIdx && !selNote) {
+    e.preventDefault(); delSelectedSymbol();
+  }
+
   // Escape — deselect
   else if (k === 'Escape') {
-    selNote = null; selMeasure = null; selSymbol = null;
+    selNote = null; selMeasure = null; selSymbol = null; selSymIdx = null;
     document.getElementById('noteProps').style.display = 'none';
     document.getElementById('measProps').style.display = 'none';
+    document.getElementById('symProps').style.display = 'none';
     document.querySelectorAll('.pi').forEach(p => p.classList.remove('active'));
     pickTool('note');
     render();
