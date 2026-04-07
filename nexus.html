@@ -1,0 +1,2013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS PRO v2 — Professional Web Synthesizer</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--bg:#0a0a0c;--bg2:#111116;--bg3:#18181f;--bg4:#1e1e28;
+--border:#2a2a38;--border2:#3a3a4a;
+--text:#c8c8d4;--text2:#8888a0;--text3:#5a5a70;
+--accent:#00d4aa;--accent2:#00b894;--accent3:#007a5e;
+--red:#ff4466;--orange:#ff8844;--yellow:#ffcc33;--blue:#4488ff;--purple:#aa66ff;
+--knob-size:48px;--knob-sm:36px;
+--font:'Courier New',monospace;
+--radius:3px;
+}
+html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--bg);color:var(--text);font-size:11px;user-select:none}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+#app{display:flex;flex-direction:column;height:100vh}
+header{display:flex;align-items:center;justify-content:space-between;padding:4px 12px;background:var(--bg2);border-bottom:1px solid var(--border);min-height:32px}
+header h1{font-size:13px;letter-spacing:4px;color:var(--accent);font-weight:400}
+header .ver{font-size:8px;color:var(--text3);margin-left:8px}
+header .midi-status{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text2)}
+header .midi-dot{width:6px;height:6px;border-radius:50%;background:var(--red);transition:background .3s;box-shadow:0 0 4px var(--red)}
+header .midi-dot.on{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:190px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
+.cat-head{padding:5px 10px;font-size:9px;letter-spacing:1.5px;color:var(--accent);text-transform:uppercase;cursor:pointer;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.cat-head:hover{background:var(--bg4)}
+.cat-head .arr{font-size:9px;transition:transform .2s}
+.cat-head .arr.shut{transform:rotate(-90deg)}
+.cat-body{padding:3px 6px;display:flex;flex-direction:column;gap:2px}
+.cat-body.shut{display:none}
+.preset-btn{padding:3px 7px;background:var(--bg3);border:1px solid transparent;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:9px;text-align:left;border-radius:var(--radius);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preset-btn:hover{border-color:var(--accent);color:var(--accent)}
+.preset-btn.active{background:var(--accent3);border-color:var(--accent);color:#fff}
+.center{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.panels{flex:1;overflow-y:auto;padding:8px;display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;flex-shrink:0}
+.panel-head{padding:4px 8px;background:var(--bg3);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)}
+.panel-body{padding:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}
+.knob-group{display:flex;flex-direction:column;align-items:center;gap:2px;width:56px}
+.knob-label{font-size:8px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
+.knob-value{font-size:8px;color:var(--text3);text-align:center}
+.knob{width:var(--knob-size);height:var(--knob-size);position:relative;cursor:pointer}
+.knob svg{width:100%;height:100%}
+.knob .track{fill:none;stroke:var(--border);stroke-width:3;stroke-linecap:round}
+.knob .value-arc{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round;transition:stroke .15s}
+.knob:hover .value-arc{stroke:var(--yellow)}
+.knob .dot{fill:var(--accent);transition:fill .15s}
+.knob:hover .dot{fill:var(--yellow)}
+select.mini{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-family:var(--font);font-size:9px;border-radius:var(--radius);cursor:pointer;max-width:90px}
+select.mini:focus{border-color:var(--accent);outline:none}
+.select-group{display:flex;flex-direction:column;gap:2px}
+.select-group label{font-size:8px;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+.hdiv{height:1px;background:var(--border);width:100%;margin:2px 0}
+.btn{padding:3px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);cursor:pointer;font-family:var(--font);font-size:9px;border-radius:var(--radius)}
+.btn:hover{border-color:var(--accent)}
+.btn.on{background:var(--accent3);border-color:var(--accent);color:#fff}
+.keyboard-wrap{border-top:1px solid var(--border);background:var(--bg2);padding:4px 8px 8px}
+.keyboard{display:flex;position:relative;height:80px;margin:0 auto;max-width:100%;overflow-x:auto}
+.key-white{width:24px;height:78px;background:linear-gradient(180deg,#e8e8e8,#fff);border:1px solid #999;border-radius:0 0 3px 3px;cursor:pointer;position:relative;z-index:1;flex-shrink:0;transition:background .05s}
+.key-white:hover{background:linear-gradient(180deg,#d0ffe8,#e8fff4)}
+.key-white.active{background:linear-gradient(180deg,var(--accent2),var(--accent))!important}
+.key-black{width:16px;height:48px;background:linear-gradient(180deg,#222,#444);border:1px solid #111;border-radius:0 0 2px 2px;cursor:pointer;position:absolute;z-index:2;margin-left:-8px;flex-shrink:0;transition:background .05s}
+.key-black:hover{background:linear-gradient(180deg,#003322,#005544)}
+.key-black.active{background:linear-gradient(180deg,var(--accent3),var(--accent2))!important}
+.key-note{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:7px;color:#999;pointer-events:none}
+.scope-canvas{width:100%;height:60px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);display:block}
+@media(max-width:900px){
+.sidebar{width:150px}
+.knob-group{width:48px}
+:root{--knob-size:40px;--knob-sm:32px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+<div style="display:flex;align-items:baseline">
+<h1>NEXUS PRO</h1><span class="ver">v2</span>
+</div>
+<div class="midi-status">
+<div class="midi-dot" id="midiDot"></div>
+<span id="midiLabel">No MIDI</span>
+<select class="mini" id="midiSelect" style="max-width:220px"><option value="">Select MIDI Device</option></select>
+</div>
+</header>
+<div class="main">
+<div class="sidebar" id="presetSidebar"></div>
+<div class="center">
+<div class="panels" id="panels"></div>
+<div class="keyboard-wrap">
+<div class="keyboard" id="keyboard"></div>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+// ============================================================
+// NEXUS PRO v2 — Complete Professional Web Synthesizer
+// Architecture: proven original + piano modeling + 100 presets
+// ============================================================
+
+const CTX = new (window.AudioContext || window.webkitAudioContext)({latencyHint:'interactive'});
+const MASTER = CTX.createGain();
+const ANALYSER = CTX.createAnalyser();
+ANALYSER.fftSize = 2048;
+const COMPRESSOR = CTX.createDynamicsCompressor();
+COMPRESSOR.threshold.value = -6;
+COMPRESSOR.knee.value = 10;
+COMPRESSOR.ratio.value = 4;
+COMPRESSOR.attack.value = 0.003;
+COMPRESSOR.release.value = 0.1;
+const LIMITER = CTX.createDynamicsCompressor();
+LIMITER.threshold.value = -1;
+LIMITER.knee.value = 0;
+LIMITER.ratio.value = 20;
+LIMITER.attack.value = 0.001;
+LIMITER.release.value = 0.01;
+MASTER.connect(COMPRESSOR);
+COMPRESSOR.connect(LIMITER);
+LIMITER.connect(ANALYSER);
+ANALYSER.connect(CTX.destination);
+MASTER.gain.value = 0.7;
+
+// ============================================================
+// WAVETABLES — Custom periodic waves for advanced timbres
+// ============================================================
+function buildWavetable(type) {
+  const N = 2048, real = new Float32Array(N), imag = new Float32Array(N);
+  const PHI = 1.618033988749895;
+  switch(type) {
+    case 'warm': for(let i=1;i<64;i++){real[i]=1/i*Math.pow(0.85,i);} break;
+    case 'bright': for(let i=1;i<128;i++){real[i]=1/Math.sqrt(i);} break;
+    case 'hollow': for(let i=1;i<64;i+=2){real[i]=1/(i*i);} break;
+    case 'metallic': for(let i=1;i<64;i++){real[i]=Math.sin(i*0.7)/(i*0.5+1);} break;
+    case 'glass': for(let i=1;i<48;i++){real[i]=(i%3===0?1:0.2)/i;} break;
+    case 'organ1': for(let i=1;i<32;i++){if([1,2,3,4,6,8,10,12,16].includes(i))real[i]=1/Math.sqrt(i);} break;
+    case 'organ2': for(let i=1;i<32;i++){if([1,2,3,4,5,6,8,12,16].includes(i))real[i]=0.8/i;} break;
+    case 'organ3': for(let i=1;i<32;i++){if([1,3,5,8,10,12].includes(i))real[i]=1/(i*0.7);} break;
+    case 'reed': for(let i=1;i<48;i++){real[i]=(i%2?1:-0.3)/(i+1);} break;
+    case 'brasswt': for(let i=1;i<48;i++){real[i]=Math.pow(0.9,i)*Math.sin(i*0.3+1);} break;
+    case 'stringwt': for(let i=1;i<64;i++){real[i]=1/(i*i)*Math.pow(0.95,i);} break;
+    case 'choir': for(let i=1;i<48;i++){const f=i;real[i]=(Math.exp(-((f-5)*(f-5))/20)+Math.exp(-((f-12)*(f-12))/30)+Math.exp(-((f-25)*(f-25))/50))/(i*0.5+1);} break;
+    case 'golden': for(let i=1;i<48;i++){real[i]=Math.pow(PHI,-i)*Math.cos(i*PHI);} break;
+    case 'goldenpad': for(let i=1;i<48;i++){real[i]=Math.pow(PHI,-i*0.6)*Math.cos(i/PHI)*0.8;imag[i]=Math.pow(PHI,-i*0.8)*Math.sin(i/PHI)*0.3;} break;
+    case 'goldensine': for(let i=1;i<32;i++){const k=Math.round(i*PHI)%48;if(k>0&&k<N)real[k]+=1/(i*PHI);} break;
+    case 'goldenbell': for(let i=1;i<32;i++){real[i]=Math.exp(-i/PHI/4)*Math.cos(i*PHI*0.5);} break;
+    case 'goldenstr': for(let i=1;i<48;i++){real[i]=Math.pow(0.618,i)*Math.pow(0.95,i)/(i*0.382+1);} break;
+    case 'goldenglass': for(let i=1;i<32;i++){real[i]=(i%Math.round(PHI*2)===0?1:0.382)/i*Math.pow(PHI,-i*0.2);} break;
+    case 'goldenorgan': {const stops=[1,Math.round(PHI*2),Math.round(PHI*3),Math.round(PHI*5),Math.round(PHI*8)];for(let i=1;i<32;i++){if(stops.some(s=>Math.abs(i-s)<1))real[i]=Math.pow(PHI,-Math.abs(i-stops.reduce((a,b)=>Math.abs(b-i)<Math.abs(a-i)?b:a,stops[0]))*0.3)/Math.sqrt(i);}} break;
+    case 'goldenchoir': for(let i=1;i<48;i++){const g=i*0.618;real[i]=(Math.exp(-(g-3)*(g-3)/10)+Math.exp(-(g-8)*(g-8)/20))*Math.pow(PHI,-i*0.15)/i;} break;
+    case 'goldenwind': for(let i=1;i<48;i++){real[i]=Math.pow(PHI,-i*0.4)*Math.sin(i*PHI*2)/(i+PHI);imag[i]=Math.pow(PHI,-i*0.5)*Math.cos(i*PHI)/(i*2);} break;
+    case 'goldendeep': for(let i=1;i<32;i++){real[i]=Math.pow(0.618,i*0.5)/(i*i*0.2+1);} break;
+    case 'nespulse': for(let i=1;i<64;i++){real[i]=2*Math.sin(i*Math.PI*0.25)/(i*Math.PI);} break;
+    case 'nestri': for(let i=1;i<64;i+=2){real[i]=8*((i%4===1?1:-1))/(i*i*Math.PI*Math.PI);} break;
+    case 'genesis': for(let i=1;i<48;i++){real[i]=Math.sin(i*1.3+Math.sin(i*0.7))/i;} break;
+    // --- Physics-based waveforms ---
+    case 'formant_a': for(let i=1;i<64;i++){const f=i*100;real[i]=(Math.exp(-(f-730)*(f-730)/40000)+Math.exp(-(f-1090)*(f-1090)/60000)+Math.exp(-(f-2440)*(f-2440)/100000))/i;} break;
+    case 'formant_e': for(let i=1;i<64;i++){const f=i*100;real[i]=(Math.exp(-(f-530)*(f-530)/30000)+Math.exp(-(f-1840)*(f-1840)/80000)+Math.exp(-(f-2480)*(f-2480)/100000))/i;} break;
+    case 'formant_o': for(let i=1;i<64;i++){const f=i*100;real[i]=(Math.exp(-(f-570)*(f-570)/30000)+Math.exp(-(f-840)*(f-840)/40000)+Math.exp(-(f-2410)*(f-2410)/100000))/i;} break;
+    case 'formant_u': for(let i=1;i<64;i++){const f=i*100;real[i]=(Math.exp(-(f-440)*(f-440)/25000)+Math.exp(-(f-1020)*(f-1020)/50000)+Math.exp(-(f-2240)*(f-2240)/90000))/i;} break;
+    case 'bowed': for(let i=1;i<64;i++){real[i]=Math.pow(0.92,i)*(1+0.5*Math.sin(i*0.8))/(i*0.7+0.3);} break;
+    case 'plucked': for(let i=1;i<64;i++){real[i]=Math.pow(0.88,i)*Math.sin(i*Math.PI*0.9)/(i);} break;
+    case 'tube': for(let i=1;i<48;i+=2){real[i]=1/(i*Math.sqrt(i))*Math.pow(0.92,i);} break;
+    case 'bellpar': for(let i=1;i<32;i++){const p=i*i*0.03+i;real[Math.min(Math.round(p),N-1)]+=1/(i*1.5+1);} break;
+    case 'inharmon': for(let i=1;i<32;i++){const r=i*Math.sqrt(1+0.005*i*i);const idx=Math.min(Math.round(r),N-1);if(idx>0)real[idx]+=Math.pow(0.85,i)/Math.sqrt(i);} break;
+    case 'comb': for(let i=1;i<64;i++){real[i]=(i%5===0?1:0.15)/Math.sqrt(i);} break;
+    case 'resonant': for(let i=1;i<64;i++){real[i]=Math.exp(-((i-8)*(i-8))/20)/i+Math.exp(-((i-24)*(i-24))/40)/i;} break;
+    case 'breath': for(let i=1;i<64;i++){real[i]=Math.random()*0.3/i+Math.exp(-((i-10)*(i-10))/30)*0.5/i;imag[i]=Math.random()*0.2/i;} break;
+    case 'harmon': for(let i=1;i<48;i++){real[i]=1/i;} break;
+    case 'buzzsaw': for(let i=1;i<128;i++){real[i]=((i%2)?1:-0.5)/i*Math.pow(0.98,i);} break;
+    case 'pwm30': for(let i=1;i<64;i++){real[i]=2*Math.sin(i*Math.PI*0.3)/(i*Math.PI);} break;
+    case 'pwm10': for(let i=1;i<64;i++){real[i]=2*Math.sin(i*Math.PI*0.1)/(i*Math.PI);} break;
+    case 'supersaw': for(let i=1;i<128;i++){real[i]=(1/i)*(1+0.3*Math.sin(i*2.1)+0.2*Math.cos(i*3.7));} break;
+    // --- Industrial / Cyber ---
+    case 'digital': for(let i=1;i<64;i++){real[i]=((i*7)%11-5)/11/Math.sqrt(i);} break;
+    case 'bitcrush': for(let i=1;i<64;i++){real[i]=Math.round(Math.sin(i*0.9)*4)/4/i;} break;
+    case 'hardsync': for(let i=1;i<64;i++){real[i]=Math.sin(i*2.5)/(i*0.5+1)*Math.pow(0.93,i);} break;
+    case 'ringwt': for(let i=1;i<48;i++){real[i]=Math.sin(i*1.7)*Math.cos(i*0.3)/i;} break;
+    case 'noise_tone': for(let i=1;i<48;i++){real[i]=(Math.sin(i*i*0.1)+0.5*Math.cos(i*i*0.07))/(i*2);} break;
+    case 'distorted': for(let i=1;i<128;i++){real[i]=Math.tanh(3/i)*Math.pow(0.96,i);} break;
+    case 'acidwt': for(let i=1;i<64;i++){real[i]=(i<=3?1:Math.pow(0.7,i-3))/(i);} break;
+    // --- Extended Organ stops ---
+    case 'organ4': for(let i=1;i<32;i++){if([1,2,3,4,5,6,8,10,12,16,20,24].includes(i))real[i]=0.7/Math.sqrt(i);} break;
+    case 'organ5': for(let i=1;i<32;i++){if([1,2,4,8,16].includes(i))real[i]=1/Math.pow(i,0.3);} break;
+    case 'organ6': for(let i=1;i<32;i++){if([1,3,5,7,9,11].includes(i))real[i]=0.9/(i*0.6+0.4);} break;
+    case 'organ7': for(let i=1;i<32;i++){real[i]=(i<=8?0.8:0.2)/(i*0.5+0.5)*Math.pow(0.94,i);} break;
+    case 'organ8': for(let i=1;i<32;i++){if([1,2,3,5,8,13].includes(i))real[i]=1/i;} break;
+    // --- Golden therapy (binaural/solfeggio inspired) ---
+    case 'golden396': for(let i=1;i<32;i++){real[i]=Math.pow(PHI,-i*0.5)*Math.cos(i*3.96/PHI)/(i*0.5+0.5);} break;
+    case 'golden528': for(let i=1;i<32;i++){real[i]=Math.pow(PHI,-i*0.45)*Math.cos(i*5.28/PHI)/(i*0.4+0.6);} break;
+    case 'golden639': for(let i=1;i<32;i++){real[i]=Math.pow(PHI,-i*0.55)*Math.sin(i*6.39/PHI)/(i*0.5+0.5);} break;
+    case 'golden741': for(let i=1;i<32;i++){real[i]=Math.pow(PHI,-i*0.5)*Math.cos(i*7.41/PHI)/(i*0.6+0.4);} break;
+    case 'golden852': for(let i=1;i<32;i++){real[i]=Math.pow(PHI,-i*0.4)*Math.sin(i*8.52/PHI)/(i*0.5+0.5);} break;
+    case 'golden963': for(let i=1;i<32;i++){real[i]=Math.pow(PHI,-i*0.35)*Math.cos(i*9.63/PHI)/(i*0.4+0.6);} break;
+    case 'goldentheta': for(let i=1;i<32;i++){real[i]=Math.pow(PHI,-i*0.7)*Math.cos(i/PHI*0.618)/(i+PHI);} break;
+    case 'goldenalpha': for(let i=1;i<32;i++){real[i]=Math.pow(PHI,-i*0.55)*(Math.cos(i*PHI*0.3)+0.5*Math.sin(i/PHI))/(i*2);} break;
+  }
+  return CTX.createPeriodicWave(real, imag, {disableNormalization:false});
+}
+const WT = {};
+['warm','bright','hollow','metallic','glass','organ1','organ2','organ3','organ4','organ5','organ6','organ7','organ8','reed','brasswt','stringwt','choir','bowed','plucked','tube','bellpar','inharmon','comb','resonant','breath','harmon','buzzsaw','pwm30','pwm10','supersaw','formant_a','formant_e','formant_o','formant_u','digital','bitcrush','hardsync','ringwt','noise_tone','distorted','acidwt','golden','goldenpad','goldensine','goldenbell','goldenstr','goldenglass','goldenorgan','goldenchoir','goldenwind','goldendeep','golden396','golden528','golden639','golden741','golden852','golden963','goldentheta','goldenalpha','nespulse','nestri','genesis'].forEach(n => { WT[n] = buildWavetable(n); });
+
+// List of custom wavetable names (anything not a standard Web Audio type)
+const CUSTOM_WAVES = new Set(Object.keys(WT));
+// Standard oscillator types
+const STD_WAVES = new Set(['sine','triangle','sawtooth','square']);
+
+function applyWave(osc, waveName) {
+  if (STD_WAVES.has(waveName)) {
+    osc.type = waveName;
+  } else if (waveName === 'pulse') {
+    osc.type = 'square'; // approximate
+  } else if (WT[waveName]) {
+    osc.setPeriodicWave(WT[waveName]);
+  } else {
+    osc.type = 'sawtooth'; // safe fallback
+  }
+}
+
+// ============================================================
+// NOISE BUFFERS (pre-generated for performance)
+// ============================================================
+function makeNoiseBuf(type) {
+  const len = CTX.sampleRate * 2;
+  const buf = CTX.createBuffer(1, len, CTX.sampleRate);
+  const d = buf.getChannelData(0);
+  if (type === 'white') {
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  } else if (type === 'pink') {
+    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random()*2-1;
+      b0=0.99886*b0+w*0.0555179; b1=0.99332*b1+w*0.0750759;
+      b2=0.969*b2+w*0.153852; b3=0.8665*b3+w*0.3104856;
+      b4=0.55*b4+w*0.5329522; b5=-0.7616*b5-w*0.0168980;
+      d[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11; b6=w*0.115926;
+    }
+  } else { // brown
+    let last = 0;
+    for (let i = 0; i < len; i++) { last=(last+(0.02*(Math.random()*2-1)))/1.02; d[i]=last*3.5; }
+  }
+  return buf;
+}
+const NOISE_BUFS = { white: makeNoiseBuf('white'), pink: makeNoiseBuf('pink'), brown: makeNoiseBuf('brown') };
+
+// ============================================================
+// PIANO MODELS — Additive Synthesis Harmonic Profiles
+// ============================================================
+const PIANO_MODELS = {
+  steinway: {
+    name:'Steinway D',
+    harmonics:[1,.71,.42,.38,.22,.18,.13,.11,.09,.07,.055,.04,.035,.028,.022,.018,.014,.011,.009,.007,.005,.004,.003,.002],
+    decays:[1,.92,.85,.78,.72,.68,.62,.58,.54,.5,.47,.44,.41,.38,.36,.34,.32,.3,.28,.26,.24,.22,.2,.18],
+    inharmonicity:0.0004, brightness:0.7, hammerHardness:0.55,
+    bodyRes:[220,440,880], bodyQ:[2,1.5,1], bodyGain:[0.06,0.04,0.02],
+    releaseDecay:0.4, damperNoise:0.02, stereoWidth:0.65
+  },
+  fazioli: {
+    name:'Fazioli F308',
+    harmonics:[1,.75,.5,.42,.28,.22,.17,.14,.11,.09,.07,.055,.045,.038,.03,.025,.02,.016,.013,.01,.008,.006,.005,.004],
+    decays:[1,.94,.88,.82,.76,.72,.66,.62,.58,.54,.51,.48,.45,.42,.39,.37,.35,.33,.31,.29,.27,.25,.23,.21],
+    inharmonicity:0.00035, brightness:0.8, hammerHardness:0.5,
+    bodyRes:[200,420,850], bodyQ:[2.2,1.8,1.2], bodyGain:[0.07,0.05,0.03],
+    releaseDecay:0.45, damperNoise:0.015, stereoWidth:0.7
+  },
+  bosendorfer: {
+    name:'Bösendorfer 290',
+    harmonics:[1,.68,.38,.35,.2,.16,.12,.1,.08,.065,.05,.04,.032,.025,.02,.016,.013,.01,.008,.006,.005,.004,.003,.002],
+    decays:[1,.95,.9,.85,.8,.76,.7,.66,.62,.58,.55,.52,.49,.46,.43,.41,.39,.37,.35,.33,.31,.29,.27,.25],
+    inharmonicity:0.00045, brightness:0.6, hammerHardness:0.45,
+    bodyRes:[210,430,870], bodyQ:[2.5,2,1.3], bodyGain:[0.08,0.06,0.04],
+    releaseDecay:0.5, damperNoise:0.018, stereoWidth:0.6
+  },
+  yamaha: {
+    name:'Yamaha CFX',
+    harmonics:[1,.73,.46,.4,.25,.2,.15,.12,.1,.08,.06,.048,.04,.033,.027,.022,.018,.014,.011,.009,.007,.005,.004,.003],
+    decays:[1,.91,.84,.77,.71,.66,.61,.57,.53,.49,.46,.43,.4,.37,.35,.33,.31,.29,.27,.25,.23,.21,.19,.17],
+    inharmonicity:0.00038, brightness:0.75, hammerHardness:0.6,
+    bodyRes:[215,435,860], bodyQ:[1.8,1.4,1], bodyGain:[0.05,0.035,0.02],
+    releaseDecay:0.35, damperNoise:0.025, stereoWidth:0.55
+  },
+  kawai: {
+    name:'Kawai SK-EX',
+    harmonics:[1,.72,.48,.41,.26,.21,.16,.13,.105,.085,.065,.05,.042,.035,.028,.023,.019,.015,.012,.01,.008,.006,.005,.004],
+    decays:[1,.93,.87,.8,.74,.7,.64,.6,.56,.52,.49,.46,.43,.4,.38,.36,.34,.32,.3,.28,.26,.24,.22,.2],
+    inharmonicity:0.00036, brightness:0.72, hammerHardness:0.52,
+    bodyRes:[218,438,865], bodyQ:[2,1.6,1.1], bodyGain:[0.055,0.04,0.025],
+    releaseDecay:0.38, damperNoise:0.022, stereoWidth:0.6
+  },
+  hamburg: {
+    name:'Steinway Hamburg',
+    harmonics:[1,.69,.4,.36,.21,.17,.125,.105,.085,.068,.052,.038,.032,.026,.021,.017,.013,.01,.008,.006,.005,.004,.003,.002],
+    decays:[1,.93,.87,.81,.75,.7,.65,.61,.57,.53,.5,.47,.44,.41,.38,.36,.34,.32,.3,.28,.26,.24,.22,.2],
+    inharmonicity:0.00042, brightness:0.65, hammerHardness:0.5,
+    bodyRes:[218,436,876], bodyQ:[2.3,1.7,1.15], bodyGain:[0.065,0.045,0.025],
+    releaseDecay:0.42, damperNoise:0.019, stereoWidth:0.62
+  },
+  grotrian: {
+    name:'Grotrian Concert',
+    harmonics:[1,.67,.37,.33,.19,.155,.115,.095,.078,.063,.048,.037,.03,.024,.019,.015,.012,.01,.008,.006,.005,.004,.003,.002],
+    decays:[1,.94,.89,.84,.79,.74,.69,.65,.61,.57,.54,.51,.48,.45,.42,.4,.38,.36,.34,.32,.3,.28,.26,.24],
+    inharmonicity:0.00043, brightness:0.58, hammerHardness:0.42,
+    bodyRes:[208,425,855], bodyQ:[2.6,2.1,1.35], bodyGain:[0.075,0.055,0.035],
+    releaseDecay:0.48, damperNoise:0.016, stereoWidth:0.58
+  },
+  baldwin: {
+    name:'Baldwin SF10',
+    harmonics:[1,.74,.47,.42,.27,.22,.165,.135,.11,.088,.068,.052,.043,.036,.029,.024,.02,.016,.013,.01,.008,.006,.005,.004],
+    decays:[1,.9,.83,.76,.7,.65,.6,.56,.52,.48,.45,.42,.39,.36,.34,.32,.3,.28,.26,.24,.22,.2,.18,.16],
+    inharmonicity:0.0004, brightness:0.73, hammerHardness:0.58,
+    bodyRes:[222,442,885], bodyQ:[1.9,1.5,1], bodyGain:[0.055,0.038,0.022],
+    releaseDecay:0.36, damperNoise:0.024, stereoWidth:0.55
+  },
+  pleyel: {
+    name:'Pleyel P280',
+    harmonics:[1,.66,.36,.32,.18,.15,.11,.09,.075,.06,.047,.036,.029,.023,.018,.014,.011,.009,.007,.005,.004,.003,.002,.002],
+    decays:[1,.94,.88,.83,.78,.73,.68,.64,.6,.56,.53,.5,.47,.44,.41,.39,.37,.35,.33,.31,.29,.27,.25,.23],
+    inharmonicity:0.00044, brightness:0.55, hammerHardness:0.4,
+    bodyRes:[205,415,845], bodyQ:[2.4,1.9,1.25], bodyGain:[0.07,0.05,0.03],
+    releaseDecay:0.52, damperNoise:0.014, stereoWidth:0.55
+  }
+};
+
+// ============================================================
+// STATE
+// ============================================================
+const S = {
+  // Master
+  masterTuning:440,
+  // Piano
+  pianoMode:false, pianoModel:'steinway', pianoBrightness:0.5, pianoHammer:0.5, pianoResonance:0.3, pianoStereo:0.6,
+  // OSC 1
+  osc1Wave:'sawtooth', osc1Tune:0, osc1Fine:0, osc1Phase:0, osc1Drift:0,
+  osc1Unison:1, osc1Detune:15, osc1PW:0.5, osc1PWM:0, osc1Level:0.7,
+  // OSC 2
+  osc2Wave:'square', osc2Tune:0, osc2Fine:0, osc2Phase:0, osc2Drift:0,
+  osc2Unison:1, osc2Detune:10, osc2PW:0.5, osc2PWM:0, osc2Level:0.5, osc2On:true,
+  // Sub/Noise
+  subOn:true, subWave:'sine', subOct:-1, subLevel:0.3,
+  noiseOn:false, noiseType:'white', noiseLevel:0.1,
+  // Sync/Ring/FM/AM
+  syncOn:false, ringOn:false,
+  fmAmount:0, fmRatio:1, amAmount:0, amRate:5,
+  // Mixer
+  // (osc1Level/osc2Level above)
+  // Filter
+  filterOn:true, filterType:'lowpass', filterCutoff:5000, filterRes:1,
+  filterSlope:2, filterDrive:0, filterKeyTrack:0, filterEnvAmt:2000,
+  // Amp
+  volume:0.7, pan:0,
+  // Amp Env
+  ampA:0.01, ampD:0.3, ampS:0.7, ampR:0.3,
+  // Filter Env
+  filtA:0.01, filtD:0.4, filtS:0.3, filtR:0.5,
+  // Pitch Env
+  pitchA:0, pitchD:0.1, pitchS:0, pitchR:0.1, pitchEnvAmt:0,
+  // LFO1
+  lfo1Rate:4, lfo1Depth:0, lfo1Wave:'sine', lfo1Dest:'none', lfo1Phase:0, lfo1Fade:0, lfo1Retrigger:true,
+  // LFO2
+  lfo2Rate:0.5, lfo2Depth:0, lfo2Wave:'triangle', lfo2Dest:'none', lfo2Phase:0, lfo2Fade:0, lfo2Retrigger:true,
+  // Mod
+  velSens:0.7,
+  // Play mode
+  playMode:'poly', polyphony:16, portamento:0, pitchBendRange:2,
+  // Arp
+  arpOn:false, arpRate:8, arpMode:'up', arpOctaves:1, arpGate:0.8,
+  // Effects
+  distOn:false, distType:'soft', distAmount:0.3,
+  chorusOn:false, chorusRate:1.5, chorusDepth:0.003, chorusMix:0.3,
+  delayOn:false, delayTime:0.375, delayFeedback:0.35, delayMix:0.25,
+  reverbOn:false, reverbDecay:2, reverbMix:0.2,
+  phaserOn:false, phaserRate:0.5, phaserDepth:2000, phaserMix:0.3,
+  eqLow:0, eqMid:0, eqHigh:0,
+  bitcrushOn:false, bitcrushBits:8,
+  sustainPedal:false,
+};
+
+// ============================================================
+// MIDI — Universal support for any MIDI keyboard
+// ============================================================
+let midiAccess = null;
+let midiInput = null;
+const midiDot = document.getElementById('midiDot');
+const midiLabel = document.getElementById('midiLabel');
+const midiSelect = document.getElementById('midiSelect');
+
+async function initMIDI() {
+  try {
+    midiAccess = await navigator.requestMIDIAccess({sysex:false});
+    refreshMIDIDevices();
+    midiAccess.onstatechange = refreshMIDIDevices;
+  } catch(e) { midiLabel.textContent = 'MIDI Not Available'; }
+}
+
+function refreshMIDIDevices() {
+  midiSelect.innerHTML = '<option value="">Select MIDI Device</option>';
+  const inputs = midiAccess.inputs;
+  inputs.forEach((inp, id) => {
+    const opt = document.createElement('option');
+    opt.value = id; opt.textContent = inp.name;
+    midiSelect.appendChild(opt);
+  });
+  // Auto-connect first device
+  if (inputs.size > 0 && !midiInput) {
+    const first = inputs.values().next().value;
+    connectMIDI(first);
+    midiSelect.value = [...inputs.keys()][0];
+  }
+}
+
+midiSelect.addEventListener('change', e => {
+  if (!e.target.value) { disconnectMIDI(); return; }
+  const inp = midiAccess.inputs.get(e.target.value);
+  if (inp) connectMIDI(inp);
+});
+
+function connectMIDI(inp) {
+  if (midiInput) midiInput.onmidimessage = null;
+  midiInput = inp;
+  midiInput.onmidimessage = onMIDI;
+  midiDot.classList.add('on');
+  midiLabel.textContent = inp.name;
+}
+
+function disconnectMIDI() {
+  if (midiInput) midiInput.onmidimessage = null;
+  midiInput = null;
+  midiDot.classList.remove('on');
+  midiLabel.textContent = 'No MIDI';
+}
+
+function onMIDI(e) {
+  if (!e.data || e.data.length < 2) return;
+  const [status, d1, d2] = e.data;
+  const cmd = status & 0xf0;
+  if (cmd === 0x90 && d2 > 0) noteOn(d1, d2 / 127);
+  else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)) noteOff(d1);
+  else if (cmd === 0xB0) {
+    // CC messages
+    if (d1 === 1) onModWheel(d2 / 127);        // Mod wheel
+    else if (d1 === 64) {                        // Sustain pedal
+      const wasDown = S.sustainPedal;
+      S.sustainPedal = d2 >= 64;
+      if (wasDown && !S.sustainPedal) releaseSustainedNotes();
+    }
+    else if (d1 === 11) onExpression(d2 / 127);  // Expression
+    else if (d1 === 7) MASTER.gain.linearRampToValueAtTime(S.volume * (d2/127), CTX.currentTime + 0.02); // Volume CC
+  }
+  else if (cmd === 0xE0) {
+    const bend = ((d2 << 7) | d1) - 8192;
+    onPitchBend(bend / 8192);
+  }
+  else if (cmd === 0xD0) onAftertouch(d1 / 127); // Channel aftertouch
+  else if (cmd === 0xA0) onPolyAftertouch(d1, d2 / 127); // Poly aftertouch
+}
+
+let currentBend = 0;
+function onPitchBend(v) {
+  currentBend = v;
+  voices.forEach(vc => { if (vc.active) updateVoicePitch(vc); });
+}
+function onModWheel(v) { /* extensible */ }
+function onAftertouch(v) { /* extensible */ }
+function onPolyAftertouch(note, v) { /* extensible */ }
+function onExpression(v) { MASTER.gain.linearRampToValueAtTime(S.volume * v, CTX.currentTime + 0.02); }
+
+function releaseSustainedNotes() {
+  // Release any notes that were held by the sustain pedal
+  const toRelease = [];
+  activeNotes.forEach((voice, note) => {
+    // Check if the physical key is no longer held (voice was waiting for pedal release)
+    if (voice._sustainHeld) {
+      toRelease.push(note);
+    }
+  });
+  toRelease.forEach(note => {
+    const voice = activeNotes.get(note);
+    if (voice) { releaseVoice(voice); activeNotes.delete(note); }
+    highlightKey(note, false);
+  });
+}
+
+// ============================================================
+// VOICE ARCHITECTURE
+// ============================================================
+const voices = [];
+const activeNotes = new Map();
+
+function midiToFreq(n) { return S.masterTuning * Math.pow(2, (n - 69) / 12); }
+
+function noteOn(note, vel) {
+  if (CTX.state === 'suspended') CTX.resume();
+  if (S.arpOn) { arpNoteOn(note, vel); return; }
+  if (S.playMode === 'mono' || S.playMode === 'legato') {
+    monoNoteOn(note, vel); return;
+  }
+  // Poly mode
+  if (activeNotes.has(note)) {
+    const old = activeNotes.get(note);
+    releaseVoice(old);
+    activeNotes.delete(note);
+  }
+  // Polyphony limit: steal oldest voice
+  if (activeNotes.size >= S.polyphony) {
+    const oldest = activeNotes.entries().next().value;
+    if (oldest) { releaseVoice(oldest[1]); activeNotes.delete(oldest[0]); highlightKey(oldest[0], false); }
+  }
+  const voice = S.pianoMode ? createPianoVoice(note, vel) : createVoice(note, vel);
+  activeNotes.set(note, voice);
+  highlightKey(note, true);
+}
+
+function noteOff(note) {
+  if (S.arpOn) { arpNoteOff(note); return; }
+  if (S.playMode === 'mono' || S.playMode === 'legato') {
+    monoNoteOff(note); return;
+  }
+  if (S.sustainPedal) {
+    // Mark voice as sustained so pedal release can clean it up
+    const voice = activeNotes.get(note);
+    if (voice) voice._sustainHeld = true;
+    return;
+  }
+  const voice = activeNotes.get(note);
+  if (voice) { releaseVoice(voice); activeNotes.delete(note); }
+  highlightKey(note, false);
+}
+
+let monoVoice = null;
+let monoStack = [];
+
+function monoNoteOn(note, vel) {
+  monoStack.push({note, vel});
+  if (!monoVoice) {
+    monoVoice = S.pianoMode ? createPianoVoice(note, vel) : createVoice(note, vel);
+  } else {
+    if (S.playMode === 'legato') {
+      updateVoiceNote(monoVoice, note);
+    } else {
+      releaseVoice(monoVoice);
+      monoVoice = S.pianoMode ? createPianoVoice(note, vel) : createVoice(note, vel);
+    }
+  }
+  highlightKey(note, true);
+}
+
+function monoNoteOff(note) {
+  highlightKey(note, false);
+  monoStack = monoStack.filter(x => x.note !== note);
+  if (monoStack.length === 0) {
+    if (monoVoice) { releaseVoice(monoVoice); monoVoice = null; }
+  } else {
+    const last = monoStack[monoStack.length - 1];
+    if (S.playMode === 'legato' && monoVoice) updateVoiceNote(monoVoice, last.note);
+    else { if (monoVoice) releaseVoice(monoVoice); monoVoice = S.pianoMode ? createPianoVoice(last.note, last.vel) : createVoice(last.note, last.vel); }
+  }
+}
+
+// ============================================================
+// SYNTH VOICE — Proven architecture from original
+// ============================================================
+function createVoice(note, vel) {
+  const t = CTX.currentTime;
+  const freq = midiToFreq(note);
+  const v = {active:true, note, velocity:vel, nodes:[], _sustainHeld:false};
+  const velAmp = 0.3 + 0.7 * (S.velSens * vel + (1 - S.velSens));
+
+  // === OSC 1 with Unison ===
+  const osc1Gain = CTX.createGain();
+  osc1Gain.gain.value = S.osc1Level * velAmp;
+  v.osc1Gain = osc1Gain;
+
+  const uniCount = Math.max(1, Math.round(S.osc1Unison));
+  v.osc1s = [];
+  for (let i = 0; i < uniCount; i++) {
+    const osc = CTX.createOscillator();
+    applyWave(osc, S.osc1Wave);
+    const detCents = uniCount > 1 ? (i/(uniCount-1) - 0.5) * S.osc1Detune * 2 : 0;
+    const driftCents = (Math.random() - 0.5) * S.osc1Drift * 10;
+    osc.frequency.value = freq * Math.pow(2, (S.osc1Tune*100 + S.osc1Fine + detCents + driftCents) / 1200);
+    osc.connect(osc1Gain);
+    osc.start(t);
+    v.osc1s.push(osc);
+    v.nodes.push(osc);
+  }
+
+  // === OSC 2 ===
+  const osc2Gain = CTX.createGain();
+  osc2Gain.gain.value = S.osc2On ? S.osc2Level * velAmp : 0;
+  v.osc2Gain = osc2Gain;
+
+  v.osc2s = [];
+  if (S.osc2On) {
+    const u2 = Math.max(1, Math.round(S.osc2Unison));
+    for (let i = 0; i < u2; i++) {
+      const osc = CTX.createOscillator();
+      applyWave(osc, S.osc2Wave);
+      const detCents = u2 > 1 ? (i/(u2-1) - 0.5) * S.osc2Detune * 2 : 0;
+      osc.frequency.value = freq * Math.pow(2, (S.osc2Tune*100 + S.osc2Fine + detCents) / 1200);
+      osc.connect(osc2Gain);
+      osc.start(t);
+      v.osc2s.push(osc);
+      v.nodes.push(osc);
+    }
+  }
+
+  // === Sub Oscillator ===
+  const subGain = CTX.createGain();
+  subGain.gain.value = S.subOn ? S.subLevel * velAmp : 0;
+  if (S.subOn) {
+    const sub = CTX.createOscillator();
+    sub.type = S.subWave;
+    sub.frequency.value = freq * Math.pow(2, S.subOct);
+    sub.connect(subGain); sub.start(t);
+    v.sub = sub; v.nodes.push(sub);
+  }
+  v.subGain = subGain;
+
+  // === Noise ===
+  const noiseGain = CTX.createGain();
+  noiseGain.gain.value = S.noiseOn ? S.noiseLevel * velAmp : 0;
+  if (S.noiseOn) {
+    const noiseSrc = CTX.createBufferSource();
+    noiseSrc.buffer = NOISE_BUFS[S.noiseType] || NOISE_BUFS.white;
+    noiseSrc.loop = true;
+    noiseSrc.connect(noiseGain); noiseSrc.start(t);
+    v.noise = noiseSrc; v.nodes.push(noiseSrc);
+  }
+  v.noiseGain = noiseGain;
+
+  // === FM ===
+  if (S.fmAmount > 0) {
+    const fmOsc = CTX.createOscillator();
+    fmOsc.type = 'sine';
+    fmOsc.frequency.value = freq * S.fmRatio;
+    const fmGain = CTX.createGain();
+    fmGain.gain.value = S.fmAmount * freq;
+    fmOsc.connect(fmGain);
+    v.osc1s.forEach(o => fmGain.connect(o.frequency));
+    fmOsc.start(t); v.nodes.push(fmOsc);
+  }
+
+  // === AM ===
+  if (S.amAmount > 0) {
+    const amOsc = CTX.createOscillator();
+    amOsc.type = 'sine'; amOsc.frequency.value = S.amRate;
+    const amGain = CTX.createGain();
+    amGain.gain.value = S.amAmount;
+    amOsc.connect(amGain); amGain.connect(osc1Gain.gain);
+    amOsc.start(t); v.nodes.push(amOsc);
+  }
+
+  // === Mixer ===
+  const mixer = CTX.createGain();
+  mixer.gain.value = 1;
+  osc1Gain.connect(mixer);
+  osc2Gain.connect(mixer);
+  subGain.connect(mixer);
+  noiseGain.connect(mixer);
+  v.mixer = mixer;
+
+  // === Filter ===
+  let filterOut = mixer;
+  if (S.filterOn) {
+    const filt = CTX.createBiquadFilter();
+    filt.type = S.filterType;
+    const baseCutoff = Math.min(20000, S.filterCutoff + S.filterKeyTrack * (note - 60) * 100);
+    filt.frequency.value = baseCutoff;
+    filt.Q.value = S.filterRes;
+    mixer.connect(filt);
+    filterOut = filt;
+    v.filter = filt;
+
+    // Second pole for 24dB
+    if (S.filterSlope >= 2) {
+      const f2 = CTX.createBiquadFilter();
+      f2.type = S.filterType; f2.frequency.value = baseCutoff; f2.Q.value = S.filterRes * 0.7;
+      filt.connect(f2); filterOut = f2; v.filter2 = f2;
+    }
+
+    // Filter envelope
+    const envMax = Math.min(20000, baseCutoff + S.filterEnvAmt);
+    const envSus = Math.min(20000, baseCutoff + S.filterEnvAmt * S.filtS);
+    filt.frequency.setValueAtTime(baseCutoff, t);
+    filt.frequency.linearRampToValueAtTime(envMax, t + Math.max(0.001, S.filtA));
+    filt.frequency.linearRampToValueAtTime(envSus, t + Math.max(0.001, S.filtA) + Math.max(0.001, S.filtD));
+    if (v.filter2) {
+      v.filter2.frequency.setValueAtTime(baseCutoff, t);
+      v.filter2.frequency.linearRampToValueAtTime(envMax, t + Math.max(0.001, S.filtA));
+      v.filter2.frequency.linearRampToValueAtTime(envSus, t + Math.max(0.001, S.filtA) + Math.max(0.001, S.filtD));
+    }
+  }
+
+  // === Drive (pre-VCA waveshaper) ===
+  if (S.filterDrive > 0) {
+    const ws = CTX.createWaveShaper();
+    ws.curve = makeDriveCurve(S.filterDrive * 400);
+    ws.oversample = '4x';
+    const driveIn = filterOut;
+    const driveOut = CTX.createGain();
+    driveOut.gain.value = 1 / (1 + S.filterDrive);
+    driveIn.connect(ws);
+    ws.connect(driveOut);
+    filterOut = driveOut;
+    // Note: driveIn is NO LONGER connected directly forward — only through ws
+  }
+
+  // === Distortion FX ===
+  if (S.distOn) {
+    const ws = CTX.createWaveShaper();
+    ws.curve = makeDistCurve(S.distType, S.distAmount);
+    ws.oversample = '4x';
+    const distIn = filterOut;
+    const distOut = CTX.createGain();
+    distOut.gain.value = 1 / (1 + S.distAmount * 2);
+    distIn.connect(ws);
+    ws.connect(distOut);
+    filterOut = distOut;
+  }
+
+  // === VCA ===
+  const vca = CTX.createGain();
+  vca.gain.setValueAtTime(0, t);
+  vca.gain.linearRampToValueAtTime(S.volume * velAmp, t + Math.max(0.001, S.ampA));
+  vca.gain.linearRampToValueAtTime(S.volume * S.ampS * velAmp, t + Math.max(0.001, S.ampA) + Math.max(0.001, S.ampD));
+  filterOut.connect(vca);
+  v.vca = vca;
+
+  // === Pan ===
+  const panner = CTX.createStereoPanner();
+  panner.pan.value = S.pan;
+  vca.connect(panner);
+  panner.connect(fxInput);
+  v.panner = panner;
+
+  // === Pitch Envelope ===
+  if (S.pitchEnvAmt !== 0) {
+    const amt = S.pitchEnvAmt;
+    v.osc1s.forEach(o => {
+      const base = o.frequency.value;
+      o.frequency.setValueAtTime(base * Math.pow(2, amt/12), t);
+      o.frequency.linearRampToValueAtTime(base, t + Math.max(0.001, S.pitchA) + Math.max(0.001, S.pitchD));
+    });
+    if (v.osc2s) v.osc2s.forEach(o => {
+      const base = o.frequency.value;
+      o.frequency.setValueAtTime(base * Math.pow(2, amt/12), t);
+      o.frequency.linearRampToValueAtTime(base, t + Math.max(0.001, S.pitchA) + Math.max(0.001, S.pitchD));
+    });
+  }
+
+  // === LFO routing ===
+  function routeLFO(lfoRate, lfoDepth, lfoWave, lfoDest) {
+    if (lfoDest === 'none' || lfoDepth === 0) return;
+    const lfo = CTX.createOscillator();
+    lfo.type = lfoWave; lfo.frequency.value = lfoRate;
+    const lg = CTX.createGain();
+    if (lfoDest === 'pitch') { lg.gain.value = lfoDepth * 50; v.osc1s.forEach(o => lg.connect(o.frequency)); }
+    else if (lfoDest === 'filter' && v.filter) { lg.gain.value = lfoDepth * 2000; lg.connect(v.filter.frequency); }
+    else if (lfoDest === 'amp') { lg.gain.value = lfoDepth * 0.3; lg.connect(vca.gain); }
+    else if (lfoDest === 'pan') { lg.gain.value = lfoDepth; lg.connect(panner.pan); }
+    else if (lfoDest === 'pw') { lg.gain.value = lfoDepth * 50; v.osc1s.forEach(o => lg.connect(o.detune)); }
+    lfo.connect(lg); lfo.start(t); v.nodes.push(lfo);
+  }
+  routeLFO(S.lfo1Rate, S.lfo1Depth, S.lfo1Wave, S.lfo1Dest);
+  routeLFO(S.lfo2Rate, S.lfo2Depth, S.lfo2Wave, S.lfo2Dest);
+
+  v.active = true;
+  voices.push(v);
+  return v;
+}
+
+// ============================================================
+// PIANO VOICE — Additive Synthesis with Physical Modeling
+// ============================================================
+function createPianoVoice(note, vel) {
+  const t = CTX.currentTime;
+  const freq = midiToFreq(note);
+  const model = PIANO_MODELS[S.pianoModel] || PIANO_MODELS.steinway;
+  const v = {active:true, note, velocity:vel, nodes:[], _sustainHeld:false};
+  const velAmp = 0.15 + 0.85 * vel;
+  const brightness = S.pianoBrightness * model.brightness;
+  const hammer = S.pianoHammer * model.hammerHardness;
+  const B = model.inharmonicity * (1 + note * 0.01);
+
+  const mainGain = CTX.createGain();
+  mainGain.gain.value = S.volume * velAmp * 0.25;
+
+  // Additive synthesis: 24 harmonics
+  for (let h = 0; h < model.harmonics.length; h++) {
+    const n = h + 1;
+    const partialFreq = freq * n * Math.sqrt(1 + B * n * n);
+    if (partialFreq > CTX.sampleRate / 2.2) break;
+
+    const osc = CTX.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = partialFreq;
+
+    const gain = CTX.createGain();
+    let amp = model.harmonics[h];
+    amp *= Math.pow(vel, 0.3 + h * 0.06);
+    amp *= Math.pow(brightness + 0.3, h * 0.15);
+    amp *= 1 + hammer * h * 0.02;
+
+    const baseDecay = 2 + 8 * (1 - note / 127);
+    const partialDecay = baseDecay * model.decays[h] * (0.5 + 0.5 * vel);
+
+    gain.gain.setValueAtTime(amp * 0.6, t);
+    gain.gain.linearRampToValueAtTime(amp, t + 0.002 + h * 0.0002);
+    const fastDecay = partialDecay * 0.15;
+    gain.gain.setTargetAtTime(amp * 0.6, t + 0.01, fastDecay);
+    gain.gain.setTargetAtTime(amp * 0.08, t + fastDecay, partialDecay);
+
+    osc.connect(gain);
+
+    const panVal = S.pianoStereo * ((note - 60) / 40 + Math.sin(h * 1.7) * 0.1);
+    const panner = CTX.createStereoPanner();
+    panner.pan.value = Math.max(-1, Math.min(1, panVal));
+    gain.connect(panner);
+    panner.connect(mainGain);
+
+    osc.start(t);
+    v.nodes.push(osc);
+  }
+
+  // Hammer noise transient
+  const noiseBuf = CTX.createBuffer(1, Math.floor(CTX.sampleRate * 0.05), CTX.sampleRate);
+  const nd = noiseBuf.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = (Math.random()*2-1) * Math.pow(1 - i/nd.length, 3);
+  const noiseSrc = CTX.createBufferSource();
+  noiseSrc.buffer = noiseBuf;
+  const noiseG = CTX.createGain();
+  noiseG.gain.value = model.damperNoise * vel * (1 + hammer);
+  const noiseF = CTX.createBiquadFilter();
+  noiseF.type = 'bandpass'; noiseF.frequency.value = freq * 2; noiseF.Q.value = 1;
+  noiseSrc.connect(noiseF); noiseF.connect(noiseG); noiseG.connect(mainGain);
+  noiseSrc.start(t); v.nodes.push(noiseSrc);
+
+  // Body resonance filters
+  model.bodyRes.forEach((f, i) => {
+    const bp = CTX.createBiquadFilter();
+    bp.type = 'peaking'; bp.frequency.value = f; bp.Q.value = model.bodyQ[i]; bp.gain.value = model.bodyGain[i] * 20;
+    mainGain.connect(bp); bp.connect(fxInput);
+  });
+
+  mainGain.connect(fxInput);
+  v.vca = mainGain;
+  v.mixer = mainGain;
+  v.panner = null; // piano handles its own panning per-partial
+  v.active = true;
+  voices.push(v);
+  return v;
+}
+
+// ============================================================
+// VOICE RELEASE & CLEANUP
+// ============================================================
+function releaseVoice(v) {
+  if (!v || !v.active) return;
+  v.active = false;
+  const t = CTX.currentTime;
+  const rel = S.pianoMode ? Math.max(0.05, (PIANO_MODELS[S.pianoModel]||PIANO_MODELS.steinway).releaseDecay) : Math.max(0.005, S.ampR);
+  try {
+    v.vca.gain.cancelScheduledValues(t);
+    v.vca.gain.setValueAtTime(v.vca.gain.value, t);
+    v.vca.gain.linearRampToValueAtTime(0, t + rel);
+    if (v.filter) {
+      v.filter.frequency.cancelScheduledValues(t);
+      v.filter.frequency.setValueAtTime(v.filter.frequency.value, t);
+      v.filter.frequency.linearRampToValueAtTime(S.filterCutoff, t + Math.max(0.005, S.filtR));
+    }
+  } catch(e) {}
+  setTimeout(() => destroyVoice(v), (rel + 0.1) * 1000);
+}
+
+function destroyVoice(v) {
+  v.nodes.forEach(n => { try { n.stop(); } catch(e) {} try { n.disconnect(); } catch(e) {} });
+  try { v.vca.disconnect(); } catch(e) {}
+  if (v.panner) try { v.panner.disconnect(); } catch(e) {}
+  if (v.mixer) try { v.mixer.disconnect(); } catch(e) {}
+  const idx = voices.indexOf(v);
+  if (idx >= 0) voices.splice(idx, 1);
+}
+
+function updateVoiceNote(v, note) {
+  const freq = midiToFreq(note);
+  const t = CTX.currentTime;
+  const glide = Math.max(0.001, S.portamento);
+  v.note = note;
+  if (v.osc1s) v.osc1s.forEach((o, i) => {
+    const uniCount = v.osc1s.length;
+    const det = uniCount > 1 ? (i/(uniCount-1) - 0.5) * S.osc1Detune * 2 : 0;
+    o.frequency.linearRampToValueAtTime(freq * Math.pow(2, (S.osc1Tune*100 + S.osc1Fine + det) / 1200), t + glide);
+  });
+  if (v.osc2s) v.osc2s.forEach((o, i) => {
+    const u2 = v.osc2s.length;
+    const det = u2 > 1 ? (i/(u2-1) - 0.5) * S.osc2Detune * 2 : 0;
+    o.frequency.linearRampToValueAtTime(freq * Math.pow(2, (S.osc2Tune*100 + S.osc2Fine + det) / 1200), t + glide);
+  });
+  if (v.sub) v.sub.frequency.linearRampToValueAtTime(freq * Math.pow(2, S.subOct), t + glide);
+}
+
+function updateVoicePitch(v) {
+  const freq = midiToFreq(v.note) * Math.pow(2, currentBend * S.pitchBendRange / 12);
+  if (v.osc1s) v.osc1s.forEach(o => { o.frequency.setTargetAtTime(freq, CTX.currentTime, 0.005); });
+  if (v.osc2s) v.osc2s.forEach(o => { o.frequency.setTargetAtTime(freq, CTX.currentTime, 0.005); });
+}
+
+// ============================================================
+// FX CHAIN — Exact same proven architecture as original
+// ============================================================
+const fxInput = CTX.createGain(); fxInput.gain.value = 1;
+
+// Chorus
+const chorusDelay = CTX.createDelay(0.05);
+const chorusLFO = CTX.createOscillator();
+const chorusLFOGain = CTX.createGain();
+const chorusWet = CTX.createGain();
+const chorusDry = CTX.createGain();
+chorusLFO.frequency.value = S.chorusRate; chorusLFO.type = 'sine';
+chorusLFOGain.gain.value = S.chorusDepth;
+chorusDelay.delayTime.value = 0.005;
+chorusLFO.connect(chorusLFOGain); chorusLFOGain.connect(chorusDelay.delayTime);
+chorusLFO.start();
+chorusWet.gain.value = 0; chorusDry.gain.value = 1;
+
+// Delay
+const delayNode = CTX.createDelay(4);
+const delayFB = CTX.createGain();
+const delayWet = CTX.createGain();
+const delayFilter = CTX.createBiquadFilter();
+delayFilter.type = 'lowpass'; delayFilter.frequency.value = 6000;
+delayNode.delayTime.value = S.delayTime;
+delayFB.gain.value = S.delayFeedback;
+delayWet.gain.value = 0;
+delayNode.connect(delayFilter); delayFilter.connect(delayFB); delayFB.connect(delayNode);
+
+// Reverb
+const reverbConv = CTX.createConvolver();
+const reverbWet = CTX.createGain();
+const reverbDry = CTX.createGain();
+reverbWet.gain.value = 0; reverbDry.gain.value = 1;
+generateIR(S.reverbDecay);
+
+function generateIR(decay) {
+  const len = Math.floor(CTX.sampleRate * Math.max(0.1, decay));
+  const buf = CTX.createBuffer(2, len, CTX.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      const t = i / len;
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 1.5) * Math.exp(-3 * t);
+    }
+  }
+  try { reverbConv.buffer = buf; } catch(e) {}
+}
+
+// EQ
+const eqLow = CTX.createBiquadFilter(); eqLow.type = 'lowshelf'; eqLow.frequency.value = 320; eqLow.gain.value = S.eqLow;
+const eqMid = CTX.createBiquadFilter(); eqMid.type = 'peaking'; eqMid.frequency.value = 1000; eqMid.Q.value = 1; eqMid.gain.value = S.eqMid;
+const eqHigh = CTX.createBiquadFilter(); eqHigh.type = 'highshelf'; eqHigh.frequency.value = 3200; eqHigh.gain.value = S.eqHigh;
+
+// Phaser
+const phaserFilters = [];
+const phaserLFO = CTX.createOscillator();
+const phaserLFOGain = CTX.createGain();
+const phaserWet = CTX.createGain();
+phaserLFO.type = 'sine'; phaserLFO.frequency.value = S.phaserRate;
+phaserLFOGain.gain.value = S.phaserDepth;
+phaserLFO.connect(phaserLFOGain); phaserLFO.start();
+phaserWet.gain.value = 0;
+let phaserChain = null;
+for (let i = 0; i < 6; i++) {
+  const ap = CTX.createBiquadFilter(); ap.type = 'allpass'; ap.frequency.value = 1000; ap.Q.value = 0.7;
+  phaserLFOGain.connect(ap.frequency);
+  phaserFilters.push(ap);
+  if (phaserChain) phaserChain.connect(ap);
+  phaserChain = ap;
+}
+
+// *** CONNECT FX CHAIN ***
+// fxInput -> chorus -> phaser -> delay -> reverb -> EQ -> MASTER
+fxInput.connect(chorusDry);
+fxInput.connect(chorusDelay); chorusDelay.connect(chorusWet);
+
+const postChorus = CTX.createGain(); postChorus.gain.value = 1;
+chorusDry.connect(postChorus); chorusWet.connect(postChorus);
+
+// Phaser
+const phaserDry = CTX.createGain(); phaserDry.gain.value = 1;
+postChorus.connect(phaserDry);
+postChorus.connect(phaserFilters[0]);
+phaserChain.connect(phaserWet);
+
+const postPhaser = CTX.createGain(); postPhaser.gain.value = 1;
+phaserDry.connect(postPhaser); phaserWet.connect(postPhaser);
+
+// Delay send
+postPhaser.connect(delayNode);
+delayNode.connect(delayWet);
+const postDelay = CTX.createGain(); postDelay.gain.value = 1;
+postPhaser.connect(postDelay);
+delayWet.connect(postDelay);
+
+// Reverb
+postDelay.connect(reverbDry);
+postDelay.connect(reverbConv); reverbConv.connect(reverbWet);
+const postReverb = CTX.createGain(); postReverb.gain.value = 1;
+reverbDry.connect(postReverb); reverbWet.connect(postReverb);
+
+// EQ -> MASTER
+postReverb.connect(eqLow); eqLow.connect(eqMid); eqMid.connect(eqHigh); eqHigh.connect(MASTER);
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function makeDriveCurve(amount) {
+  const n = 256, c = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const x = i*2/n - 1; c[i] = ((3+amount)*x*20*(Math.PI/180)) / (Math.PI + amount*Math.abs(x)); }
+  return c;
+}
+
+function makeDistCurve(type, amount) {
+  const n = 256, c = new Float32Array(n), a = Math.max(1, amount * 100);
+  for (let i = 0; i < n; i++) {
+    const x = i*2/n - 1;
+    if (type === 'soft') c[i] = (Math.PI+a)*x / (Math.PI + a*Math.abs(x));
+    else if (type === 'hard') c[i] = Math.max(-1, Math.min(1, x*a));
+    else if (type === 'fuzz') c[i] = Math.sign(x) * Math.pow(Math.abs(x), 0.3/(amount+0.1));
+    else if (type === 'tape') c[i] = Math.tanh(x*a) / Math.tanh(a);
+    else c[i] = x;
+  }
+  return c;
+}
+
+// ============================================================
+// ARPEGGIATOR
+// ============================================================
+let arpNotes = [];
+let arpIdx = 0;
+let arpTimer = null;
+let arpCurrentNote = null;
+
+function arpNoteOn(note, vel) {
+  if (!arpNotes.find(n => n.note === note)) arpNotes.push({note, vel});
+  arpNotes.sort((a, b) => a.note - b.note);
+  if (!arpTimer) startArp();
+}
+function arpNoteOff(note) {
+  arpNotes = arpNotes.filter(n => n.note !== note);
+  if (arpNotes.length === 0) stopArp();
+}
+function startArp() {
+  arpIdx = 0;
+  const interval = 60000 / (S.arpRate * 4 * 120);
+  arpTimer = setInterval(() => arpTick(), interval);
+  arpTick();
+}
+function stopArp() {
+  clearInterval(arpTimer); arpTimer = null;
+  if (arpCurrentNote !== null) {
+    const v = activeNotes.get(arpCurrentNote);
+    if (v) { releaseVoice(v); activeNotes.delete(arpCurrentNote); }
+    highlightKey(arpCurrentNote, false);
+    arpCurrentNote = null;
+  }
+}
+function arpTick() {
+  if (arpNotes.length === 0) return;
+  if (arpCurrentNote !== null) {
+    const v = activeNotes.get(arpCurrentNote);
+    if (v) { releaseVoice(v); activeNotes.delete(arpCurrentNote); }
+    highlightKey(arpCurrentNote, false);
+  }
+  let seq = [...arpNotes];
+  if (S.arpOctaves > 1) {
+    const base = [...arpNotes];
+    for (let o = 1; o < S.arpOctaves; o++) base.forEach(n => seq.push({note: n.note+12*o, vel: n.vel}));
+  }
+  if (S.arpMode === 'down') seq.reverse();
+  else if (S.arpMode === 'random') seq.sort(() => Math.random() - 0.5);
+  arpIdx = arpIdx % seq.length;
+  const n = seq[arpIdx];
+  const voice = S.pianoMode ? createPianoVoice(n.note, n.vel) : createVoice(n.note, n.vel);
+  activeNotes.set(n.note, voice);
+  highlightKey(n.note, true);
+  arpCurrentNote = n.note;
+  arpIdx++;
+}
+
+// ============================================================
+// SCOPE
+// ============================================================
+let scopeCanvas, scopeCtx;
+function drawScope() {
+  if (!scopeCanvas) return;
+  requestAnimationFrame(drawScope);
+  const w = scopeCanvas.width, h = scopeCanvas.height;
+  const buf = new Uint8Array(ANALYSER.frequencyBinCount);
+  ANALYSER.getByteTimeDomainData(buf);
+  scopeCtx.fillStyle = '#0a0a0c'; scopeCtx.fillRect(0, 0, w, h);
+  scopeCtx.strokeStyle = '#00d4aa'; scopeCtx.lineWidth = 1.5;
+  scopeCtx.beginPath();
+  const slice = w / buf.length;
+  for (let i = 0; i < buf.length; i++) {
+    const x = i * slice, y = (buf[i] / 255) * h;
+    i === 0 ? scopeCtx.moveTo(x, y) : scopeCtx.lineTo(x, y);
+  }
+  scopeCtx.stroke();
+}
+
+// ============================================================
+// onParamChange — real-time FX parameter updates
+// ============================================================
+function onParamChange(param) {
+  if (param === 'chorusRate') chorusLFO.frequency.value = S.chorusRate;
+  if (param === 'chorusDepth') chorusLFOGain.gain.value = S.chorusDepth;
+  if (param === 'chorusMix' || param === 'chorusOn') chorusWet.gain.value = S.chorusOn ? S.chorusMix : 0;
+  if (param === 'delayTime') delayNode.delayTime.linearRampToValueAtTime(S.delayTime, CTX.currentTime + 0.05);
+  if (param === 'delayFeedback') delayFB.gain.value = S.delayFeedback;
+  if (param === 'delayMix' || param === 'delayOn') delayWet.gain.value = S.delayOn ? S.delayMix : 0;
+  if (param === 'reverbMix' || param === 'reverbOn') reverbWet.gain.value = S.reverbOn ? S.reverbMix : 0;
+  if (param === 'reverbDecay') generateIR(S.reverbDecay);
+  if (param === 'phaserRate') phaserLFO.frequency.value = S.phaserRate;
+  if (param === 'phaserDepth') phaserLFOGain.gain.value = S.phaserDepth;
+  if (param === 'phaserMix' || param === 'phaserOn') phaserWet.gain.value = S.phaserOn ? S.phaserMix : 0;
+  if (param === 'eqLow') eqLow.gain.value = S.eqLow;
+  if (param === 'eqMid') eqMid.gain.value = S.eqMid;
+  if (param === 'eqHigh') eqHigh.gain.value = S.eqHigh;
+  if (param === 'volume') MASTER.gain.linearRampToValueAtTime(S.volume, CTX.currentTime + 0.02);
+}
+
+// Sync ALL FX states (called after preset load)
+function syncAllFX() {
+  chorusLFO.frequency.value = S.chorusRate;
+  chorusLFOGain.gain.value = S.chorusDepth;
+  chorusWet.gain.value = S.chorusOn ? S.chorusMix : 0;
+  delayNode.delayTime.value = S.delayTime;
+  delayFB.gain.value = S.delayFeedback;
+  delayWet.gain.value = S.delayOn ? S.delayMix : 0;
+  reverbWet.gain.value = S.reverbOn ? S.reverbMix : 0;
+  generateIR(S.reverbDecay);
+  phaserLFO.frequency.value = S.phaserRate;
+  phaserLFOGain.gain.value = S.phaserDepth;
+  phaserWet.gain.value = S.phaserOn ? S.phaserMix : 0;
+  eqLow.gain.value = S.eqLow;
+  eqMid.gain.value = S.eqMid;
+  eqHigh.gain.value = S.eqHigh;
+  MASTER.gain.value = S.volume;
+}
+
+// ============================================================
+// UI BUILDER — Same proven knob/select/toggle system
+// ============================================================
+const panelsEl = document.getElementById('panels');
+const knobs = [];
+
+// All waveform options (standard + wavetable)
+const ALL_WAVES = [
+  'sine','triangle','sawtooth','square','pulse',
+  {value:'warm',label:'Warm'},{value:'bright',label:'Bright'},{value:'hollow',label:'Hollow'},
+  {value:'harmon',label:'Harmonic'},{value:'buzzsaw',label:'Buzzsaw'},{value:'supersaw',label:'Supersaw'},
+  {value:'pwm30',label:'PWM 30%'},{value:'pwm10',label:'PWM 10%'},{value:'acidwt',label:'Acid'},
+  {value:'metallic',label:'Metallic'},{value:'glass',label:'Glass'},{value:'bellpar',label:'Bell'},
+  {value:'inharmon',label:'Inharmonic'},{value:'comb',label:'Comb'},{value:'resonant',label:'Resonant'},
+  {value:'bowed',label:'Bowed'},{value:'plucked',label:'Plucked'},{value:'stringwt',label:'String WT'},
+  {value:'tube',label:'Tube'},{value:'breath',label:'Breath'},{value:'reed',label:'Reed'},
+  {value:'brasswt',label:'Brass WT'},{value:'choir',label:'Choir'},
+  {value:'formant_a',label:'Vowel A'},{value:'formant_e',label:'Vowel E'},
+  {value:'formant_o',label:'Vowel O'},{value:'formant_u',label:'Vowel U'},
+  {value:'organ1',label:'Organ 1'},{value:'organ2',label:'Organ 2'},{value:'organ3',label:'Organ 3'},
+  {value:'organ4',label:'Organ 4'},{value:'organ5',label:'Organ 5'},{value:'organ6',label:'Organ 6'},
+  {value:'organ7',label:'Organ 7'},{value:'organ8',label:'Organ 8'},
+  {value:'digital',label:'Digital'},{value:'bitcrush',label:'Bitcrush'},
+  {value:'hardsync',label:'Hard Sync'},{value:'ringwt',label:'Ring Mod'},
+  {value:'noise_tone',label:'Noise Tone'},{value:'distorted',label:'Distorted'},
+  {value:'golden',label:'φ Golden'},{value:'goldenpad',label:'φ Pad'},
+  {value:'goldensine',label:'φ Sine'},{value:'goldenbell',label:'φ Bell'},
+  {value:'goldenstr',label:'φ String'},{value:'goldenglass',label:'φ Glass'},
+  {value:'goldenorgan',label:'φ Organ'},{value:'goldenchoir',label:'φ Choir'},
+  {value:'goldenwind',label:'φ Wind'},{value:'goldendeep',label:'φ Deep'},
+  {value:'golden396',label:'φ 396Hz'},{value:'golden528',label:'φ 528Hz'},
+  {value:'golden639',label:'φ 639Hz'},{value:'golden741',label:'φ 741Hz'},
+  {value:'golden852',label:'φ 852Hz'},{value:'golden963',label:'φ 963Hz'},
+  {value:'goldentheta',label:'φ Theta'},{value:'goldenalpha',label:'φ Alpha'},
+  {value:'nespulse',label:'NES Pulse'},{value:'nestri',label:'NES Tri'},{value:'genesis',label:'Genesis FM'}
+];
+
+function createKnob(param, min, max, step, label, format) {
+  const grp = document.createElement('div');
+  grp.className = 'knob-group';
+  const lbl = document.createElement('div'); lbl.className = 'knob-label'; lbl.textContent = label;
+  const knobEl = document.createElement('div'); knobEl.className = 'knob';
+  const val = document.createElement('div'); val.className = 'knob-value';
+  const fmt = format || (v => step >= 1 ? Math.round(v) : v.toFixed(step < 0.01 ? 3 : 2));
+  val.textContent = fmt(S[param]);
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 48 48');
+  const R = 18, CX = 24, CY = 24;
+  const startAngle = 135 * (Math.PI / 180), endAngle = 405 * (Math.PI / 180);
+  function arcPath(angle) { return `${CX + R*Math.cos(angle)} ${CY + R*Math.sin(angle)}`; }
+
+  const track = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  track.setAttribute('d', `M ${arcPath(startAngle)} A ${R} ${R} 0 1 1 ${arcPath(endAngle)}`);
+  track.setAttribute('class', 'track');
+  svg.appendChild(track);
+
+  const valueArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  valueArc.setAttribute('class', 'value-arc');
+  svg.appendChild(valueArc);
+
+  const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  dot.setAttribute('r', '2.5'); dot.setAttribute('class', 'dot');
+  svg.appendChild(dot);
+
+  function updateArc() {
+    const norm = (S[param] - min) / (max - min);
+    const angle = startAngle + norm * (endAngle - startAngle);
+    const large = angle - startAngle > Math.PI ? 1 : 0;
+    if (norm > 0.001) {
+      valueArc.setAttribute('d', `M ${arcPath(startAngle)} A ${R} ${R} 0 ${large} 1 ${arcPath(angle)}`);
+    } else { valueArc.setAttribute('d', ''); }
+    dot.setAttribute('cx', CX + R*Math.cos(angle));
+    dot.setAttribute('cy', CY + R*Math.sin(angle));
+    val.textContent = fmt(S[param]);
+  }
+  updateArc();
+
+  knobEl.appendChild(svg);
+  grp.appendChild(lbl); grp.appendChild(knobEl); grp.appendChild(val);
+
+  let dragging = false, startY, startVal;
+  knobEl.addEventListener('pointerdown', e => {
+    dragging = true; startY = e.clientY; startVal = S[param];
+    knobEl.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  knobEl.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dy = startY - e.clientY;
+    const range = max - min;
+    const sensitivity = e.shiftKey ? 0.0005 : 0.005;
+    S[param] = Math.max(min, Math.min(max, startVal + dy * range * sensitivity));
+    S[param] = Math.round(S[param] / step) * step;
+    updateArc();
+    onParamChange(param);
+  });
+  knobEl.addEventListener('pointerup', () => { dragging = false; });
+  knobEl.addEventListener('pointercancel', () => { dragging = false; });
+  knobEl.addEventListener('dblclick', () => {
+    S[param] = min + (max - min) * 0.5;
+    S[param] = Math.round(S[param] / step) * step;
+    updateArc(); onParamChange(param);
+  });
+
+  knobs.push({param, update: updateArc});
+  return grp;
+}
+
+function createSelect(param, options, label) {
+  const grp = document.createElement('div'); grp.className = 'select-group';
+  const lbl = document.createElement('label'); lbl.textContent = label;
+  const sel = document.createElement('select'); sel.className = 'mini';
+  options.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = typeof o === 'object' ? o.value : o;
+    opt.textContent = typeof o === 'object' ? o.label : o;
+    sel.appendChild(opt);
+  });
+  sel.value = S[param];
+  sel.addEventListener('change', () => {
+    S[param] = isNaN(Number(sel.value)) ? sel.value : Number(sel.value);
+    onParamChange(param);
+  });
+  grp.appendChild(lbl); grp.appendChild(sel);
+  return grp;
+}
+
+function createToggle(param, label) {
+  const btn = document.createElement('button');
+  btn.className = 'btn' + (S[param] ? ' on' : '');
+  btn.textContent = label;
+  btn.addEventListener('click', () => { S[param] = !S[param]; btn.classList.toggle('on'); onParamChange(param); });
+  return btn;
+}
+
+function panel(title, w, content) {
+  const p = document.createElement('div'); p.className = 'panel';
+  if (w) p.style.width = w + 'px';
+  const head = document.createElement('div'); head.className = 'panel-head';
+  head.innerHTML = `<span>${title}</span>`;
+  p.appendChild(head);
+  const body = document.createElement('div'); body.className = 'panel-body';
+  if (typeof content === 'function') content(body);
+  p.appendChild(body);
+  return p;
+}
+
+// ============================================================
+// BUILD UI
+// ============================================================
+function buildUI() {
+  panelsEl.innerHTML = '';
+  knobs.length = 0;
+
+  // Scope
+  panelsEl.appendChild(panel('SCOPE', 280, body => {
+    const c = document.createElement('canvas'); c.className = 'scope-canvas'; c.width = 260; c.height = 60;
+    body.appendChild(c);
+    scopeCanvas = c; scopeCtx = c.getContext('2d');
+    requestAnimationFrame(drawScope);
+  }));
+
+  // Master Tuning
+  panelsEl.appendChild(panel('MASTER TUNING', 200, body => {
+    body.appendChild(createKnob('masterTuning', 415, 466, 0.1, 'A4 Hz', v => v.toFixed(1)+' Hz'));
+    // Quick-set buttons
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap;width:100%';
+    [
+      {l:'415',v:415},{l:'432',v:432},{l:'434',v:434},{l:'440',v:440},
+      {l:'442',v:442},{l:'444',v:444},{l:'446',v:446}
+    ].forEach(t => {
+      const b = document.createElement('button'); b.className = 'btn'; b.textContent = t.l;
+      b.style.fontSize = '8px';
+      b.addEventListener('click', () => { S.masterTuning = t.v; buildUI(); syncAllFX(); });
+      row.appendChild(b);
+    });
+    body.appendChild(row);
+  }));
+
+  // Piano Model
+  panelsEl.appendChild(panel('PIANO MODEL', 420, body => {
+    body.appendChild(createToggle('pianoMode', 'PIANO MODE'));
+    body.appendChild(createSelect('pianoModel', [
+      {value:'steinway',label:'Steinway D'},{value:'hamburg',label:'Steinway Hamburg'},
+      {value:'fazioli',label:'Fazioli F308'},{value:'bosendorfer',label:'Bösendorfer 290'},
+      {value:'yamaha',label:'Yamaha CFX'},{value:'kawai',label:'Kawai SK-EX'},
+      {value:'grotrian',label:'Grotrian Concert'},{value:'baldwin',label:'Baldwin SF10'},
+      {value:'pleyel',label:'Pleyel P280'}
+    ], 'MODEL'));
+    body.appendChild(createKnob('pianoBrightness', 0, 1, 0.01, 'BRIGHT'));
+    body.appendChild(createKnob('pianoHammer', 0, 1, 0.01, 'HAMMER'));
+    body.appendChild(createKnob('pianoResonance', 0, 1, 0.01, 'RESONANCE'));
+    body.appendChild(createKnob('pianoStereo', 0, 1, 0.01, 'STEREO'));
+  }));
+
+  // OSC 1
+  panelsEl.appendChild(panel('OSC 1', 380, body => {
+    body.appendChild(createSelect('osc1Wave', ALL_WAVES, 'WAVE'));
+    body.appendChild(createKnob('osc1Level', 0, 1, 0.01, 'LEVEL'));
+    body.appendChild(createKnob('osc1Tune', -3, 3, 1, 'TUNE', v => v > 0 ? '+'+v : v));
+    body.appendChild(createKnob('osc1Fine', -100, 100, 1, 'FINE', v => Math.round(v)+'¢'));
+    body.appendChild(createKnob('osc1Phase', 0, 1, 0.01, 'PHASE'));
+    body.appendChild(createKnob('osc1Drift', 0, 1, 0.01, 'DRIFT'));
+    body.appendChild(createKnob('osc1Unison', 1, 8, 1, 'UNISON', v => Math.round(v)));
+    body.appendChild(createKnob('osc1Detune', 0, 100, 1, 'DETUNE', v => Math.round(v)+'¢'));
+    body.appendChild(createKnob('osc1PW', 0.05, 0.95, 0.01, 'PW'));
+    body.appendChild(createKnob('osc1PWM', 0, 1, 0.01, 'PWM'));
+  }));
+
+  // OSC 2
+  panelsEl.appendChild(panel('OSC 2', 340, body => {
+    body.appendChild(createToggle('osc2On', 'ON'));
+    body.appendChild(createSelect('osc2Wave', ALL_WAVES, 'WAVE'));
+    body.appendChild(createKnob('osc2Level', 0, 1, 0.01, 'LEVEL'));
+    body.appendChild(createKnob('osc2Tune', -3, 3, 1, 'TUNE', v => v > 0 ? '+'+v : v));
+    body.appendChild(createKnob('osc2Fine', -100, 100, 1, 'FINE', v => Math.round(v)+'¢'));
+    body.appendChild(createKnob('osc2Unison', 1, 8, 1, 'UNISON', v => Math.round(v)));
+    body.appendChild(createKnob('osc2Detune', 0, 100, 1, 'DETUNE', v => Math.round(v)+'¢'));
+    body.appendChild(createKnob('osc2PW', 0.05, 0.95, 0.01, 'PW'));
+  }));
+
+  // Sub + Noise + FM/AM
+  panelsEl.appendChild(panel('SUB / NOISE / MOD', 300, body => {
+    body.appendChild(createToggle('subOn', 'SUB'));
+    body.appendChild(createSelect('subWave', ['sine','triangle','square'], 'SUB WAVE'));
+    body.appendChild(createKnob('subOct', -2, 0, 1, 'SUB OCT', v => v));
+    body.appendChild(createKnob('subLevel', 0, 1, 0.01, 'SUB LVL'));
+    body.appendChild(Object.assign(document.createElement('div'), {className:'hdiv'}));
+    body.appendChild(createToggle('noiseOn', 'NOISE'));
+    body.appendChild(createSelect('noiseType', ['white','pink','brown'], 'TYPE'));
+    body.appendChild(createKnob('noiseLevel', 0, 1, 0.01, 'NOISE LVL'));
+    body.appendChild(Object.assign(document.createElement('div'), {className:'hdiv'}));
+    body.appendChild(createToggle('syncOn', 'SYNC'));
+    body.appendChild(createToggle('ringOn', 'RING'));
+    body.appendChild(createKnob('fmAmount', 0, 10, 0.1, 'FM AMT'));
+    body.appendChild(createKnob('fmRatio', 0.25, 8, 0.25, 'FM RATIO'));
+    body.appendChild(createKnob('amAmount', 0, 1, 0.01, 'AM AMT'));
+    body.appendChild(createKnob('amRate', 0.1, 30, 0.1, 'AM RATE'));
+  }));
+
+  // Mixer
+  panelsEl.appendChild(panel('MIXER', 160, body => {
+    body.appendChild(createKnob('osc1Level', 0, 1, 0.01, 'OSC 1'));
+    body.appendChild(createKnob('osc2Level', 0, 1, 0.01, 'OSC 2'));
+  }));
+
+  // Filter
+  panelsEl.appendChild(panel('FILTER', 340, body => {
+    body.appendChild(createToggle('filterOn', 'ON'));
+    body.appendChild(createSelect('filterType', ['lowpass','highpass','bandpass','notch','allpass'], 'TYPE'));
+    body.appendChild(createKnob('filterCutoff', 20, 20000, 1, 'CUTOFF', v => v >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v)));
+    body.appendChild(createKnob('filterRes', 0, 25, 0.1, 'RESO'));
+    body.appendChild(createKnob('filterSlope', 1, 2, 1, 'SLOPE', v => v===1?'12dB':'24dB'));
+    body.appendChild(createKnob('filterDrive', 0, 1, 0.01, 'DRIVE'));
+    body.appendChild(createKnob('filterKeyTrack', 0, 1, 0.01, 'KEY TRK'));
+    body.appendChild(createKnob('filterEnvAmt', -8000, 8000, 10, 'ENV AMT', v => Math.round(v)));
+  }));
+
+  // Amp
+  panelsEl.appendChild(panel('AMP', 200, body => {
+    body.appendChild(createKnob('volume', 0, 1, 0.01, 'VOLUME'));
+    body.appendChild(createKnob('pan', -1, 1, 0.01, 'PAN', v => v===0?'C':v<0?'L'+Math.round(-v*100):'R'+Math.round(v*100)));
+    body.appendChild(createKnob('velSens', 0, 1, 0.01, 'VEL SENS'));
+  }));
+
+  // Amp Envelope
+  panelsEl.appendChild(panel('AMP ENV', 240, body => {
+    body.appendChild(createKnob('ampA', 0.001, 5, 0.001, 'ATTACK', v => v>=1?v.toFixed(1)+'s':(v*1000).toFixed(0)+'ms'));
+    body.appendChild(createKnob('ampD', 0.001, 5, 0.001, 'DECAY', v => v>=1?v.toFixed(1)+'s':(v*1000).toFixed(0)+'ms'));
+    body.appendChild(createKnob('ampS', 0, 1, 0.01, 'SUSTAIN'));
+    body.appendChild(createKnob('ampR', 0.001, 10, 0.001, 'RELEASE', v => v>=1?v.toFixed(1)+'s':(v*1000).toFixed(0)+'ms'));
+  }));
+
+  // Filter Envelope
+  panelsEl.appendChild(panel('FILTER ENV', 240, body => {
+    body.appendChild(createKnob('filtA', 0.001, 5, 0.001, 'ATTACK', v => v>=1?v.toFixed(1)+'s':(v*1000).toFixed(0)+'ms'));
+    body.appendChild(createKnob('filtD', 0.001, 5, 0.001, 'DECAY', v => v>=1?v.toFixed(1)+'s':(v*1000).toFixed(0)+'ms'));
+    body.appendChild(createKnob('filtS', 0, 1, 0.01, 'SUSTAIN'));
+    body.appendChild(createKnob('filtR', 0.001, 10, 0.001, 'RELEASE', v => v>=1?v.toFixed(1)+'s':(v*1000).toFixed(0)+'ms'));
+  }));
+
+  // Pitch Envelope
+  panelsEl.appendChild(panel('PITCH ENV', 200, body => {
+    body.appendChild(createKnob('pitchEnvAmt', -48, 48, 0.5, 'AMOUNT', v => (v>0?'+':'')+v.toFixed(1)+'st'));
+    body.appendChild(createKnob('pitchA', 0, 2, 0.001, 'ATTACK', v => (v*1000).toFixed(0)+'ms'));
+    body.appendChild(createKnob('pitchD', 0, 4, 0.001, 'DECAY', v => v>=1?v.toFixed(1)+'s':(v*1000).toFixed(0)+'ms'));
+  }));
+
+  // LFO 1
+  panelsEl.appendChild(panel('LFO 1', 280, body => {
+    body.appendChild(createSelect('lfo1Wave', ['sine','triangle','sawtooth','square'], 'WAVE'));
+    body.appendChild(createKnob('lfo1Rate', 0.01, 50, 0.01, 'RATE', v => v.toFixed(2)+'Hz'));
+    body.appendChild(createKnob('lfo1Depth', 0, 1, 0.01, 'DEPTH'));
+    body.appendChild(createSelect('lfo1Dest', [
+      {value:'none',label:'OFF'},{value:'pitch',label:'PITCH'},{value:'filter',label:'FILTER'},
+      {value:'amp',label:'AMP'},{value:'pan',label:'PAN'},{value:'pw',label:'PW'}
+    ], 'DEST'));
+    body.appendChild(createKnob('lfo1Fade', 0, 5, 0.01, 'FADE'));
+    body.appendChild(createToggle('lfo1Retrigger', 'RETRIG'));
+  }));
+
+  // LFO 2
+  panelsEl.appendChild(panel('LFO 2', 280, body => {
+    body.appendChild(createSelect('lfo2Wave', ['sine','triangle','sawtooth','square'], 'WAVE'));
+    body.appendChild(createKnob('lfo2Rate', 0.01, 50, 0.01, 'RATE', v => v.toFixed(2)+'Hz'));
+    body.appendChild(createKnob('lfo2Depth', 0, 1, 0.01, 'DEPTH'));
+    body.appendChild(createSelect('lfo2Dest', [
+      {value:'none',label:'OFF'},{value:'pitch',label:'PITCH'},{value:'filter',label:'FILTER'},
+      {value:'amp',label:'AMP'},{value:'pan',label:'PAN'},{value:'pw',label:'PW'}
+    ], 'DEST'));
+    body.appendChild(createKnob('lfo2Fade', 0, 5, 0.01, 'FADE'));
+    body.appendChild(createToggle('lfo2Retrigger', 'RETRIG'));
+  }));
+
+  // Play Mode
+  panelsEl.appendChild(panel('PLAY MODE', 200, body => {
+    body.appendChild(createSelect('playMode', ['poly','mono','legato'], 'MODE'));
+    body.appendChild(createKnob('polyphony', 1, 32, 1, 'VOICES', v => Math.round(v)));
+    body.appendChild(createKnob('portamento', 0, 2, 0.001, 'PORTA', v => (v*1000).toFixed(0)+'ms'));
+    body.appendChild(createKnob('pitchBendRange', 1, 24, 1, 'PB RANGE', v => Math.round(v)+'st'));
+  }));
+
+  // Arpeggiator
+  panelsEl.appendChild(panel('ARPEGGIATOR', 240, body => {
+    body.appendChild(createToggle('arpOn', 'ON'));
+    body.appendChild(createSelect('arpMode', ['up','down','updown','random'], 'MODE'));
+    body.appendChild(createKnob('arpRate', 1, 32, 1, 'RATE', v => '1/'+Math.round(v)));
+    body.appendChild(createKnob('arpOctaves', 1, 4, 1, 'OCTAVES', v => Math.round(v)));
+    body.appendChild(createKnob('arpGate', 0.1, 1, 0.01, 'GATE'));
+  }));
+
+  // Distortion
+  panelsEl.appendChild(panel('DISTORTION', 180, body => {
+    body.appendChild(createToggle('distOn', 'ON'));
+    body.appendChild(createSelect('distType', ['soft','hard','fuzz','tape'], 'TYPE'));
+    body.appendChild(createKnob('distAmount', 0, 1, 0.01, 'AMOUNT'));
+  }));
+
+  // Chorus
+  panelsEl.appendChild(panel('CHORUS', 180, body => {
+    body.appendChild(createToggle('chorusOn', 'ON'));
+    body.appendChild(createKnob('chorusRate', 0.1, 10, 0.1, 'RATE', v => v.toFixed(1)+'Hz'));
+    body.appendChild(createKnob('chorusDepth', 0.0001, 0.01, 0.0001, 'DEPTH'));
+    body.appendChild(createKnob('chorusMix', 0, 1, 0.01, 'MIX'));
+  }));
+
+  // Phaser
+  panelsEl.appendChild(panel('PHASER', 180, body => {
+    body.appendChild(createToggle('phaserOn', 'ON'));
+    body.appendChild(createKnob('phaserRate', 0.05, 10, 0.05, 'RATE', v => v.toFixed(2)+'Hz'));
+    body.appendChild(createKnob('phaserDepth', 100, 5000, 10, 'DEPTH'));
+    body.appendChild(createKnob('phaserMix', 0, 1, 0.01, 'MIX'));
+  }));
+
+  // Delay
+  panelsEl.appendChild(panel('DELAY', 220, body => {
+    body.appendChild(createToggle('delayOn', 'ON'));
+    body.appendChild(createKnob('delayTime', 0.01, 2, 0.001, 'TIME', v => v>=1?v.toFixed(2)+'s':(v*1000).toFixed(0)+'ms'));
+    body.appendChild(createKnob('delayFeedback', 0, 0.95, 0.01, 'FDBK'));
+    body.appendChild(createKnob('delayMix', 0, 1, 0.01, 'MIX'));
+  }));
+
+  // Reverb
+  panelsEl.appendChild(panel('REVERB', 200, body => {
+    body.appendChild(createToggle('reverbOn', 'ON'));
+    body.appendChild(createKnob('reverbDecay', 0.1, 10, 0.1, 'DECAY', v => v.toFixed(1)+'s'));
+    body.appendChild(createKnob('reverbMix', 0, 1, 0.01, 'MIX'));
+  }));
+
+  // EQ
+  panelsEl.appendChild(panel('EQ', 180, body => {
+    body.appendChild(createKnob('eqLow', -12, 12, 0.5, 'LOW', v => (v>0?'+':'')+v.toFixed(1)+'dB'));
+    body.appendChild(createKnob('eqMid', -12, 12, 0.5, 'MID', v => (v>0?'+':'')+v.toFixed(1)+'dB'));
+    body.appendChild(createKnob('eqHigh', -12, 12, 0.5, 'HIGH', v => (v>0?'+':'')+v.toFixed(1)+'dB'));
+  }));
+
+  // Bitcrusher
+  panelsEl.appendChild(panel('BITCRUSHER', 160, body => {
+    body.appendChild(createToggle('bitcrushOn', 'ON'));
+    body.appendChild(createKnob('bitcrushBits', 1, 16, 1, 'BITS', v => Math.round(v)));
+  }));
+
+  buildKeyboard();
+}
+
+// ============================================================
+// VIRTUAL KEYBOARD — Same proven implementation
+// ============================================================
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const BLACK_NOTES = new Set([1, 3, 6, 8, 10]);
+
+function buildKeyboard() {
+  const kb = document.getElementById('keyboard');
+  kb.innerHTML = '';
+  const startNote = 36, endNote = 96;
+  let whiteX = 0;
+  const keyEls = {};
+
+  // White keys
+  for (let n = startNote; n <= endNote; n++) {
+    const pc = n % 12;
+    if (BLACK_NOTES.has(pc)) continue;
+    const key = document.createElement('div');
+    key.className = 'key-white';
+    key.dataset.note = n;
+    key.style.position = 'relative';
+    if (pc === 0) {
+      const lbl = document.createElement('div'); lbl.className = 'key-note';
+      lbl.textContent = 'C' + (Math.floor(n/12) - 1); key.appendChild(lbl);
+    }
+    kb.appendChild(key);
+    keyEls[n] = {el: key, x: whiteX};
+    whiteX += 24;
+
+    key.addEventListener('pointerdown', e => { e.preventDefault(); noteOn(n, 0.8); key.setPointerCapture(e.pointerId); });
+    key.addEventListener('pointerup', () => { noteOff(n); });
+    key.addEventListener('pointerleave', () => { noteOff(n); });
+  }
+
+  kb.style.width = whiteX + 'px';
+
+  // Black keys
+  for (let n = startNote; n <= endNote; n++) {
+    const pc = n % 12;
+    if (!BLACK_NOTES.has(pc)) continue;
+    const key = document.createElement('div');
+    key.className = 'key-black';
+    key.dataset.note = n;
+    const prevWhite = keyEls[n-1] || keyEls[n-2];
+    if (prevWhite) { key.style.left = (prevWhite.x + 16) + 'px'; }
+    kb.appendChild(key);
+    keyEls[n] = {el: key};
+
+    key.addEventListener('pointerdown', e => { e.preventDefault(); noteOn(n, 0.8); key.setPointerCapture(e.pointerId); });
+    key.addEventListener('pointerup', () => { noteOff(n); });
+    key.addEventListener('pointerleave', () => { noteOff(n); });
+  }
+
+  window._keyEls = keyEls;
+}
+
+function highlightKey(note, on) {
+  if (!window._keyEls) return;
+  const k = window._keyEls[note];
+  if (k) k.el.classList.toggle('active', on);
+}
+
+// Computer keyboard mapping
+const QWERTY_MAP = {
+  'a':60,'w':61,'s':62,'e':63,'d':64,'f':65,'t':66,'g':67,'y':68,'h':69,'u':70,'j':71,'k':72,
+  'o':73,'l':74,'p':75,';':76,"'":77,
+  'z':48,'x':50,'c':52,'v':53,'b':55,'n':57,'m':59,',':60
+};
+const qwertyDown = new Set();
+document.addEventListener('keydown', e => {
+  if (e.repeat || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  const note = QWERTY_MAP[e.key.toLowerCase()];
+  if (note !== undefined && !qwertyDown.has(e.key.toLowerCase())) {
+    qwertyDown.add(e.key.toLowerCase());
+    noteOn(note, 0.75);
+  }
+});
+document.addEventListener('keyup', e => {
+  const note = QWERTY_MAP[e.key.toLowerCase()];
+  if (note !== undefined) {
+    qwertyDown.delete(e.key.toLowerCase());
+    noteOff(note);
+  }
+});
+
+// ============================================================
+// PRESETS — 100+ categorized presets
+// ============================================================
+const PHI = 1.618033988749895;
+const PRESETS = {};
+function P(cat, name, data) { if (!PRESETS[cat]) PRESETS[cat] = []; PRESETS[cat].push({name, data}); }
+
+// --- PIANO ---
+P('🎹 Piano','Steinway D Concert',{pianoMode:true,pianoModel:'steinway',pianoBrightness:.55,pianoHammer:.5,pianoResonance:.3,pianoStereo:.65,reverbOn:true,reverbMix:.18,reverbDecay:2.5});
+P('🎹 Piano','Steinway Hamburg Warm',{pianoMode:true,pianoModel:'hamburg',pianoBrightness:.45,pianoHammer:.45,pianoResonance:.35,pianoStereo:.62,reverbOn:true,reverbMix:.2,reverbDecay:2.8});
+P('🎹 Piano','Fazioli F308 Brilliant',{pianoMode:true,pianoModel:'fazioli',pianoBrightness:.75,pianoHammer:.55,pianoResonance:.35,pianoStereo:.7,reverbOn:true,reverbMix:.15,reverbDecay:2});
+P('🎹 Piano','Bösendorfer Imperial',{pianoMode:true,pianoModel:'bosendorfer',pianoBrightness:.5,pianoHammer:.4,pianoResonance:.4,pianoStereo:.6,reverbOn:true,reverbMix:.22,reverbDecay:3});
+P('🎹 Piano','Yamaha CFX Bright',{pianoMode:true,pianoModel:'yamaha',pianoBrightness:.8,pianoHammer:.65,pianoResonance:.25,pianoStereo:.55,reverbOn:true,reverbMix:.12,reverbDecay:1.8});
+P('🎹 Piano','Kawai SK-EX Concert',{pianoMode:true,pianoModel:'kawai',pianoBrightness:.6,pianoHammer:.52,pianoResonance:.3,pianoStereo:.6,reverbOn:true,reverbMix:.18,reverbDecay:2.3});
+P('🎹 Piano','Grotrian Intimate',{pianoMode:true,pianoModel:'grotrian',pianoBrightness:.42,pianoHammer:.38,pianoResonance:.45,pianoStereo:.55,reverbOn:true,reverbMix:.25,reverbDecay:3.2});
+P('🎹 Piano','Baldwin Jazz',{pianoMode:true,pianoModel:'baldwin',pianoBrightness:.7,pianoHammer:.6,pianoResonance:.2,pianoStereo:.5,reverbOn:true,reverbMix:.15,reverbDecay:1.8});
+P('🎹 Piano','Pleyel Romantic',{pianoMode:true,pianoModel:'pleyel',pianoBrightness:.38,pianoHammer:.35,pianoResonance:.5,pianoStereo:.55,reverbOn:true,reverbMix:.28,reverbDecay:3.5});
+P('🎹 Piano','Soft Ballad Piano',{pianoMode:true,pianoModel:'steinway',pianoBrightness:.3,pianoHammer:.25,pianoResonance:.45,pianoStereo:.5,reverbOn:true,reverbMix:.3,reverbDecay:3.5});
+P('🎹 Piano','Honky Tonk',{pianoMode:true,pianoModel:'yamaha',pianoBrightness:.9,pianoHammer:.8,pianoResonance:.1,pianoStereo:.3,chorusOn:true,chorusMix:.4,chorusDepth:.005});
+P('🎹 Piano','Dark Concert Grand',{pianoMode:true,pianoModel:'bosendorfer',pianoBrightness:.2,pianoHammer:.3,pianoResonance:.5,pianoStereo:.7,reverbOn:true,reverbMix:.25,reverbDecay:4});
+P('🎹 Piano','Pop Piano Bright',{pianoMode:true,pianoModel:'yamaha',pianoBrightness:.85,pianoHammer:.7,pianoResonance:.15,pianoStereo:.45,reverbOn:true,reverbMix:.1,reverbDecay:1.5});
+P('🎹 Piano','Classical Recital',{pianoMode:true,pianoModel:'fazioli',pianoBrightness:.6,pianoHammer:.48,pianoResonance:.4,pianoStereo:.65,reverbOn:true,reverbMix:.2,reverbDecay:2.8});
+P('🎹 Piano','Cinema Grand',{pianoMode:true,pianoModel:'hamburg',pianoBrightness:.5,pianoHammer:.5,pianoResonance:.35,pianoStereo:.7,reverbOn:true,reverbMix:.3,reverbDecay:3.5,delayOn:true,delayTime:.5,delayFeedback:.15,delayMix:.1});
+P('🎹 Piano','Jazz Club Kawai',{pianoMode:true,pianoModel:'kawai',pianoBrightness:.65,pianoHammer:.55,pianoResonance:.2,pianoStereo:.5,reverbOn:true,reverbMix:.12,reverbDecay:1.5});
+P('🎹 Piano','432 Hz Healing Piano',{pianoMode:true,pianoModel:'bosendorfer',pianoBrightness:.4,pianoHammer:.35,pianoResonance:.5,pianoStereo:.6,masterTuning:432,reverbOn:true,reverbMix:.35,reverbDecay:4});
+
+// --- STRINGS ---
+P('🎻 Strings','Solo Violin',{osc1Wave:'stringwt',osc1Unison:2,osc1Detune:5,osc2On:true,osc2Wave:'stringwt',osc2Fine:3,osc2Level:.3,filterCutoff:4000,filterRes:.5,ampA:.15,ampD:.3,ampS:.85,ampR:.4,lfo1Wave:'sine',lfo1Rate:5.5,lfo1Depth:.15,lfo1Dest:'pitch',reverbOn:true,reverbMix:.2});
+P('🎻 Strings','Cello Ensemble',{osc1Wave:'stringwt',osc1Unison:4,osc1Detune:12,osc2On:true,osc2Wave:'warm',osc2Level:.3,filterCutoff:3000,filterRes:.3,ampA:.3,ampD:.5,ampS:.9,ampR:1,reverbOn:true,reverbMix:.25,reverbDecay:2.5,chorusOn:true,chorusMix:.2});
+P('🎻 Strings','Symphonic Strings',{osc1Wave:'stringwt',osc1Unison:7,osc1Detune:18,osc2On:true,osc2Wave:'sawtooth',osc2Unison:4,osc2Detune:15,osc2Level:.4,filterCutoff:3500,filterRes:.3,ampA:.5,ampD:.5,ampS:.85,ampR:2,reverbOn:true,reverbMix:.35,reverbDecay:3,chorusOn:true,chorusMix:.3});
+P('🎻 Strings','Pizzicato',{osc1Wave:'triangle',osc2On:true,osc2Wave:'stringwt',osc2Level:.4,filterCutoff:2000,filterRes:1,filtA:.001,filtD:.15,filtS:0,filterEnvAmt:5000,ampA:.001,ampD:.2,ampS:0,ampR:.15,reverbOn:true,reverbMix:.2});
+P('🎻 Strings','Tremolo Strings',{osc1Wave:'stringwt',osc1Unison:5,osc1Detune:14,filterCutoff:4500,ampA:.1,ampS:.8,ampR:1.5,lfo1Wave:'sine',lfo1Rate:8,lfo1Depth:.35,lfo1Dest:'amp',reverbOn:true,reverbMix:.3});
+P('🎻 Strings','Analog Strings',{osc1Wave:'sawtooth',osc1Unison:6,osc1Detune:20,osc2On:true,osc2Wave:'sawtooth',osc2Fine:8,osc2Level:.5,filterCutoff:2500,filterRes:.5,ampA:.4,ampD:.5,ampS:.9,ampR:2,chorusOn:true,chorusMix:.4,reverbOn:true,reverbMix:.2});
+
+// --- ORGANS ---
+P('🎵 Organs','Gospel B3',{osc1Wave:'organ1',osc2On:true,osc2Wave:'organ2',osc2Level:.5,filterCutoff:8000,ampA:.005,ampD:.1,ampS:1,ampR:.05,distOn:true,distType:'soft',distAmount:.15,chorusOn:true,chorusRate:6,chorusMix:.35});
+P('🎵 Organs','Jazz Organ',{osc1Wave:'organ2',osc2On:true,osc2Wave:'organ3',osc2Level:.4,filterCutoff:6000,ampA:.005,ampS:1,ampR:.05,chorusOn:true,chorusRate:5.5,chorusMix:.3,reverbOn:true,reverbMix:.15});
+P('🎵 Organs','Cathedral Pipe',{osc1Wave:'organ3',osc1Unison:2,osc1Detune:4,osc2On:true,osc2Wave:'organ1',osc2Level:.5,subOn:true,subLevel:.4,filterCutoff:5000,ampA:.08,ampD:.3,ampS:1,ampR:.6,reverbOn:true,reverbMix:.45,reverbDecay:5});
+P('🎵 Organs','Rock Organ',{osc1Wave:'organ1',osc2On:true,osc2Wave:'organ2',osc2Level:.6,osc2Tune:1,filterCutoff:7000,ampA:.003,ampS:1,ampR:.03,distOn:true,distAmount:.3,chorusOn:true,chorusMix:.4});
+P('🎵 Organs','Farfisa Combo',{osc1Wave:'organ3',filterCutoff:4000,filterRes:1,ampA:.002,ampS:1,ampR:.02,lfo1Wave:'triangle',lfo1Rate:6,lfo1Depth:.1,lfo1Dest:'amp'});
+P('🎵 Organs','Vox Continental',{osc1Wave:'organ2',osc2On:true,osc2Wave:'reed',osc2Level:.3,filterCutoff:5500,ampA:.003,ampS:1,ampR:.04,chorusOn:true,chorusMix:.25});
+
+// --- SYNTH BRASS ---
+P('🎺 Synth/Brass','Classic Synth Brass',{osc1Wave:'sawtooth',osc2On:true,osc2Wave:'sawtooth',osc2Fine:7,osc2Level:.6,filterCutoff:600,filterRes:2,filtA:.04,filtD:.35,filtS:.5,filterEnvAmt:5000,ampA:.04,ampD:.15,ampS:.85,ampR:.15});
+P('🎺 Synth/Brass','Moog Brass',{osc1Wave:'sawtooth',osc1Unison:2,osc1Detune:8,filterCutoff:400,filterRes:4,filtA:.03,filtD:.5,filtS:.4,filterEnvAmt:6000,ampA:.03,ampS:.8,ampR:.2,playMode:'mono',distOn:true,distType:'soft',distAmount:.1});
+P('🎺 Synth/Brass','JP-8 Brass',{osc1Wave:'sawtooth',osc1Unison:3,osc1Detune:12,osc2On:true,osc2Wave:'square',osc2Level:.4,filterCutoff:500,filterRes:2,filtA:.06,filtD:.4,filtS:.55,filterEnvAmt:4500,ampA:.05,ampD:.2,ampS:.9,ampR:.2,chorusOn:true,chorusMix:.25});
+P('🎺 Synth/Brass','OB-X Brass',{osc1Wave:'sawtooth',osc2On:true,osc2Wave:'sawtooth',osc2Fine:10,osc2Level:.7,filterCutoff:700,filterRes:1.5,filtA:.05,filtD:.3,filtS:.6,filterEnvAmt:4000,ampA:.04,ampS:.85,ampR:.18,chorusOn:true,chorusMix:.35});
+P('🎺 Synth/Brass','Soft Trumpet',{osc1Wave:'brasswt',osc2On:true,osc2Wave:'sine',osc2Level:.3,filterCutoff:1000,filterRes:1,filtA:.08,filtD:.5,filtS:.6,filterEnvAmt:3000,ampA:.08,ampD:.2,ampS:.8,ampR:.25,reverbOn:true,reverbMix:.15});
+P('🎺 Synth/Brass','Trance Supersaw',{osc1Wave:'sawtooth',osc1Unison:7,osc1Detune:35,filterCutoff:800,filterRes:3,filtA:.02,filtD:.6,filtS:.3,filterEnvAmt:6000,ampA:.02,ampS:.8,ampR:.3,reverbOn:true,reverbMix:.2});
+
+// --- LEADS ---
+P('🎸 Leads','Fat Mono Lead',{osc1Wave:'sawtooth',osc1Unison:5,osc1Detune:30,filterCutoff:3000,filterRes:4,filtA:.01,filtD:.5,filtS:.2,filterEnvAmt:4000,ampA:.01,ampS:1,ampR:.15,playMode:'mono',portamento:.05});
+P('🎸 Leads','Square Lead',{osc1Wave:'square',filterCutoff:2000,filterRes:3,filtA:.01,filtD:.3,filtS:.4,filterEnvAmt:3000,ampA:.005,ampS:1,ampR:.1,playMode:'mono'});
+P('🎸 Leads','Trance Lead',{osc1Wave:'sawtooth',osc1Unison:3,osc1Detune:20,osc2On:true,osc2Wave:'square',osc2Level:.4,filterCutoff:1500,filterRes:5,filtA:.01,filtD:.4,filtS:.3,filterEnvAmt:5000,ampA:.005,ampS:1,ampR:.2,delayOn:true,delayMix:.2,delayTime:.375});
+
+// --- PADS ---
+P('🌊 Pads','Warm Pad',{osc1Wave:'warm',osc1Unison:4,osc1Detune:20,osc2On:true,osc2Wave:'triangle',osc2Fine:7,osc2Level:.4,filterCutoff:2000,filterRes:1,ampA:.8,ampD:1,ampS:.8,ampR:2.5,chorusOn:true,chorusMix:.4,reverbOn:true,reverbMix:.35,reverbDecay:3.5});
+P('🌊 Pads','Glass Pad',{osc1Wave:'glass',osc1Unison:3,osc1Detune:15,osc2On:true,osc2Wave:'hollow',osc2Level:.3,filterCutoff:4000,ampA:1,ampS:.7,ampR:3,reverbOn:true,reverbMix:.45,reverbDecay:4});
+P('🌊 Pads','Dark Ambient',{osc1Wave:'warm',osc1Unison:5,osc1Detune:25,filterCutoff:800,filterRes:2,ampA:1.5,ampD:1,ampS:.6,ampR:4,lfo1Wave:'sine',lfo1Rate:.3,lfo1Depth:.4,lfo1Dest:'filter',reverbOn:true,reverbMix:.5,reverbDecay:6});
+
+// --- BASS ---
+P('🔊 Bass','Acid Bass',{osc1Wave:'sawtooth',filterCutoff:300,filterRes:10,filtA:.001,filtD:.25,filtS:.05,filterEnvAmt:5000,ampA:.003,ampD:.2,ampS:.6,ampR:.08,playMode:'mono',distOn:true,distAmount:.2});
+P('🔊 Bass','Sub Bass',{osc1Wave:'sine',subOn:true,subLevel:.7,filterCutoff:400,ampA:.005,ampD:.1,ampS:.9,ampR:.1,playMode:'mono'});
+P('🔊 Bass','Reese Bass',{osc1Wave:'sawtooth',osc1Unison:2,osc1Detune:10,osc2On:true,osc2Wave:'sawtooth',osc2Fine:5,osc2Level:.7,filterCutoff:600,filterRes:2,ampA:.01,ampS:.8,ampR:.15,playMode:'mono',phaserOn:true,phaserRate:.3,phaserMix:.3});
+
+// --- KEYS ---
+P('🎹 Keys','Electric Piano',{osc1Wave:'sine',osc2On:true,osc2Wave:'triangle',osc2Fine:3,osc2Level:.3,fmAmount:1.5,fmRatio:7,filterCutoff:4000,ampA:.005,ampD:.6,ampS:.3,ampR:.3,chorusOn:true,chorusMix:.3});
+P('🎹 Keys','Wurlitzer',{osc1Wave:'sine',fmAmount:2,fmRatio:1,filterCutoff:3000,filterRes:1,filtA:.001,filtD:.4,filtS:.2,filterEnvAmt:2500,ampA:.003,ampD:.5,ampS:.3,ampR:.2,distOn:true,distType:'soft',distAmount:.15});
+P('🎹 Keys','Clavinet',{osc1Wave:'square',osc2On:true,osc2Wave:'sawtooth',osc2Level:.3,filterCutoff:2000,filterRes:3,filtA:.001,filtD:.2,filtS:.1,filterEnvAmt:4000,ampA:.001,ampD:.3,ampS:.1,ampR:.1});
+P('🎹 Keys','Init Saw',{osc1Wave:'sawtooth',filterCutoff:5000,ampA:.01,ampD:.3,ampS:.7,ampR:.3});
+P('🎹 Keys','Pluck',{osc1Wave:'sawtooth',filterCutoff:1000,filterRes:2,filtA:.001,filtD:.2,filtS:0,filterEnvAmt:6000,ampA:.001,ampD:.3,ampS:0,ampR:.2});
+
+// --- RETRO GAMES ---
+P('🕹️ Retro','NES Square',{osc1Wave:'square',filterOn:false,ampA:.001,ampD:.05,ampS:.8,ampR:.05,volume:.5});
+P('🕹️ Retro','NES Triangle',{osc1Wave:'nestri',filterOn:false,ampA:.001,ampS:1,ampR:.02,volume:.4});
+P('🕹️ Retro','NES Pulse 25%',{osc1Wave:'nespulse',filterOn:false,ampA:.001,ampS:.8,ampR:.03,volume:.5});
+P('🕹️ Retro','NES Noise Drum',{osc1Wave:'square',osc1Level:.1,noiseOn:true,noiseLevel:.8,filterCutoff:3000,filterRes:2,filtA:.001,filtD:.1,filtS:0,filterEnvAmt:4000,ampA:.001,ampD:.15,ampS:0,ampR:.05});
+P('🕹️ Retro','Genesis FM Bass',{osc1Wave:'sine',fmAmount:3,fmRatio:1,osc2On:true,osc2Wave:'sine',osc2Level:.3,filterCutoff:2000,filtA:.001,filtD:.2,filtS:.3,filterEnvAmt:3000,ampA:.001,ampD:.2,ampS:.5,ampR:.1,playMode:'mono'});
+P('🕹️ Retro','Genesis FM Lead',{osc1Wave:'genesis',filterCutoff:6000,ampA:.002,ampD:.15,ampS:.7,ampR:.1,playMode:'mono'});
+P('🕹️ Retro','Genesis Pad',{osc1Wave:'genesis',osc1Unison:2,osc1Detune:8,filterCutoff:3000,ampA:.3,ampD:.5,ampS:.7,ampR:1,chorusOn:true,chorusMix:.2});
+P('🕹️ Retro','SNES Warm Lead',{osc1Wave:'warm',filterCutoff:3500,filterRes:1,ampA:.005,ampD:.3,ampS:.6,ampR:.2,reverbOn:true,reverbMix:.12});
+P('🕹️ Retro','SNES Strings',{osc1Wave:'stringwt',osc1Unison:2,osc1Detune:6,filterCutoff:3000,ampA:.2,ampD:.3,ampS:.8,ampR:.8,reverbOn:true,reverbMix:.15});
+P('🕹️ Retro','SNES Choir',{osc1Wave:'choir',filterCutoff:4000,ampA:.3,ampD:.4,ampS:.7,ampR:1,reverbOn:true,reverbMix:.25});
+P('🕹️ Retro','Atari 2600',{osc1Wave:'square',filterCutoff:8000,ampA:.001,ampS:1,ampR:.01,volume:.4});
+P('🕹️ Retro','Amiga MOD Lead',{osc1Wave:'sawtooth',filterCutoff:5000,ampA:.002,ampD:.2,ampS:.7,ampR:.15,volume:.5});
+P('🕹️ Retro','C64 SID Lead',{osc1Wave:'sawtooth',osc2On:true,osc2Wave:'square',osc2Level:.5,filterCutoff:2000,filterRes:8,filtA:.001,filtD:.3,filtS:.2,filterEnvAmt:4000,ampA:.001,ampS:.8,ampR:.05,playMode:'mono'});
+P('🕹️ Retro','C64 SID Arp',{osc1Wave:'square',filterCutoff:3000,filterRes:4,ampA:.001,ampD:.1,ampS:.6,ampR:.03,arpOn:true,arpRate:16,arpOctaves:2});
+P('🕹️ Retro','Chiptune Vibrato',{osc1Wave:'square',filterCutoff:6000,ampA:.001,ampS:.8,ampR:.05,lfo1Wave:'sine',lfo1Rate:6,lfo1Depth:.2,lfo1Dest:'pitch'});
+P('🕹️ Retro','Game Over Sweep',{osc1Wave:'square',filterCutoff:5000,pitchEnvAmt:-24,pitchD:1.5,ampA:.001,ampD:1.5,ampS:0,ampR:.1});
+
+// --- HORROR (30+) ---
+P('👻 Horror','Haunted Drone',{osc1Wave:'warm',osc1Unison:5,osc1Detune:40,filterCutoff:500,filterRes:6,ampA:2,ampD:2,ampS:.6,ampR:5,lfo1Wave:'sine',lfo1Rate:.1,lfo1Depth:.7,lfo1Dest:'filter',reverbOn:true,reverbMix:.6,reverbDecay:8});
+P('👻 Horror','Ghost Whisper',{osc1Wave:'choir',osc1Unison:3,osc1Detune:30,noiseOn:true,noiseLevel:.08,filterCutoff:1500,filterRes:4,ampA:1.5,ampS:.4,ampR:4,lfo1Wave:'sine',lfo1Rate:.2,lfo1Depth:.5,lfo1Dest:'filter',reverbOn:true,reverbMix:.55,reverbDecay:6});
+P('👻 Horror','Dark Pulse',{osc1Wave:'square',osc1PW:.1,filterCutoff:300,filterRes:8,ampA:.5,ampD:1,ampS:.3,ampR:2,lfo1Wave:'square',lfo1Rate:.5,lfo1Depth:.6,lfo1Dest:'amp',reverbOn:true,reverbMix:.4});
+P('👻 Horror','Creaking Door',{osc1Wave:'sawtooth',noiseOn:true,noiseLevel:.15,noiseType:'brown',filterCutoff:800,filterRes:12,ampA:.8,ampD:.5,ampS:.5,ampR:1.5,lfo1Wave:'sine',lfo1Rate:2,lfo1Depth:.8,lfo1Dest:'pitch',reverbOn:true,reverbMix:.3});
+P('👻 Horror','Heartbeat',{osc1Wave:'sine',subOn:true,subLevel:.8,subOct:-2,filterCutoff:200,ampA:.02,ampD:.15,ampS:0,ampR:.2,lfo1Wave:'sine',lfo1Rate:1.2,lfo1Depth:.9,lfo1Dest:'amp'});
+P('👻 Horror','Dissonant Cluster',{osc1Wave:'sawtooth',osc1Fine:15,osc2On:true,osc2Wave:'sawtooth',osc2Fine:-20,osc2Level:.7,filterCutoff:2000,filterRes:3,ampA:1,ampS:.7,ampR:3,reverbOn:true,reverbMix:.5,reverbDecay:5,chorusOn:true,chorusMix:.3});
+P('👻 Horror','Evil Organ',{osc1Wave:'organ1',osc2On:true,osc2Wave:'organ3',osc2Fine:-10,osc2Level:.6,filterCutoff:3000,ampA:.2,ampS:1,ampR:1,reverbOn:true,reverbMix:.5,reverbDecay:6,distOn:true,distAmount:.2});
+P('👻 Horror','Screaming Wind',{noiseOn:true,noiseLevel:.5,noiseType:'pink',osc1Wave:'hollow',osc1Level:.3,filterCutoff:2000,filterRes:10,ampA:2,ampS:.6,ampR:4,lfo1Wave:'sine',lfo1Rate:.15,lfo1Depth:.8,lfo1Dest:'filter',reverbOn:true,reverbMix:.6,reverbDecay:7});
+P('👻 Horror','Suspense Stinger',{osc1Wave:'sawtooth',osc1Unison:4,osc1Detune:50,filterCutoff:1000,filterRes:4,filtA:.01,filtD:.5,filtS:.8,filterEnvAmt:6000,ampA:.01,ampD:.3,ampS:.9,ampR:.5,pitchEnvAmt:12,pitchD:.5,reverbOn:true,reverbMix:.35});
+P('👻 Horror','Underwater',{osc1Wave:'sine',osc2On:true,osc2Wave:'warm',osc2Level:.3,filterCutoff:600,filterRes:5,ampA:1,ampS:.5,ampR:3,lfo1Wave:'sine',lfo1Rate:.3,lfo1Depth:.6,lfo1Dest:'filter',reverbOn:true,reverbMix:.6,reverbDecay:6,chorusOn:true,chorusMix:.3});
+P('👻 Horror','Psycho Strings',{osc1Wave:'stringwt',osc1Unison:6,osc1Detune:35,osc1Fine:5,osc2On:true,osc2Wave:'stringwt',osc2Fine:-8,osc2Level:.6,filterCutoff:5000,ampA:.02,ampD:.15,ampS:.9,ampR:.5,reverbOn:true,reverbMix:.25});
+P('👻 Horror','Demon Voice',{osc1Wave:'choir',osc1Tune:-1,osc2On:true,osc2Wave:'warm',osc2Tune:-2,osc2Level:.5,filterCutoff:1200,filterRes:3,ampA:.3,ampS:.7,ampR:2,distOn:true,distAmount:.4,reverbOn:true,reverbMix:.45,reverbDecay:5});
+P('👻 Horror','Tension Riser',{osc1Wave:'sawtooth',osc1Unison:3,osc1Detune:20,filterCutoff:200,filterRes:5,ampA:3,ampS:.8,ampR:1,lfo1Wave:'sawtooth',lfo1Rate:.1,lfo1Depth:.9,lfo1Dest:'filter',pitchEnvAmt:24,pitchD:4});
+P('👻 Horror','Blood Rain',{noiseOn:true,noiseLevel:.3,noiseType:'brown',osc1Wave:'metallic',osc1Level:.2,filterCutoff:1500,filterRes:6,ampA:2,ampS:.5,ampR:4,lfo1Wave:'sine',lfo1Rate:.08,lfo1Depth:.5,lfo1Dest:'filter',reverbOn:true,reverbMix:.6,reverbDecay:8});
+P('👻 Horror','Frozen Tomb',{osc1Wave:'glass',osc1Unison:4,osc1Detune:25,filterCutoff:3000,filterRes:2,ampA:1.5,ampS:.5,ampR:5,reverbOn:true,reverbMix:.6,reverbDecay:7,chorusOn:true,chorusMix:.35,delayOn:true,delayTime:.666,delayFeedback:.3,delayMix:.2});
+P('👻 Horror','Insect Swarm',{osc1Wave:'sawtooth',osc1Unison:8,osc1Detune:50,osc1Drift:1,filterCutoff:3000,filterRes:3,ampA:.3,ampS:.7,ampR:1,lfo1Wave:'sine',lfo1Rate:15,lfo1Depth:.3,lfo1Dest:'pitch',lfo2Wave:'sine',lfo2Rate:.2,lfo2Depth:.5,lfo2Dest:'filter'});
+P('👻 Horror','Ritual Bell',{osc1Wave:'metallic',osc2On:true,osc2Wave:'glass',osc2Fine:50,osc2Level:.5,filterCutoff:6000,ampA:.01,ampD:3,ampS:0,ampR:3,reverbOn:true,reverbMix:.5,reverbDecay:6});
+P('👻 Horror','Nightmare Piano',{pianoMode:true,pianoModel:'steinway',pianoBrightness:.2,pianoHammer:.8,pianoResonance:.6,reverbOn:true,reverbMix:.5,reverbDecay:6,delayOn:true,delayTime:.666,delayFeedback:.4,delayMix:.3,phaserOn:true,phaserRate:.2,phaserMix:.4});
+P('👻 Horror','Shadow Breath',{noiseOn:true,noiseLevel:.15,noiseType:'pink',osc1Wave:'sine',osc1Level:.3,filterCutoff:400,filterRes:8,ampA:1.5,ampD:1,ampS:.3,ampR:3,lfo1Wave:'sine',lfo1Rate:.8,lfo1Depth:.9,lfo1Dest:'amp'});
+P('👻 Horror','Possessed Choir',{osc1Wave:'choir',osc1Unison:4,osc1Detune:30,osc1Fine:-5,osc2On:true,osc2Wave:'choir',osc2Fine:8,osc2Level:.5,filterCutoff:2500,filterRes:2,ampA:.8,ampS:.7,ampR:3,reverbOn:true,reverbMix:.55,reverbDecay:6,distOn:true,distType:'fuzz',distAmount:.15});
+P('👻 Horror','Electric Shock',{osc1Wave:'sawtooth',noiseOn:true,noiseLevel:.3,filterCutoff:4000,filterRes:5,ampA:.001,ampD:.08,ampS:0,ampR:.05,pitchEnvAmt:36,pitchD:.08,distOn:true,distAmount:.5});
+P('👻 Horror','Deep Abyss',{osc1Wave:'sine',osc1Tune:-2,subOn:true,subLevel:.8,subOct:-2,filterCutoff:150,filterRes:5,ampA:2,ampS:.6,ampR:5,lfo1Wave:'sine',lfo1Rate:.05,lfo1Depth:.3,lfo1Dest:'pitch',reverbOn:true,reverbMix:.6,reverbDecay:10});
+P('👻 Horror','Phantom Steps',{noiseOn:true,noiseLevel:.4,osc1Level:.1,osc1Wave:'sine',filterCutoff:500,filterRes:3,ampA:.01,ampD:.2,ampS:0,ampR:.3,delayOn:true,delayTime:.4,delayFeedback:.5,delayMix:.4,reverbOn:true,reverbMix:.3});
+P('👻 Horror','Witch Cackle',{osc1Wave:'sawtooth',filterCutoff:2000,filterRes:8,ampA:.01,ampD:.3,ampS:.2,ampR:.5,lfo1Wave:'sine',lfo1Rate:8,lfo1Depth:.5,lfo1Dest:'pitch',pitchEnvAmt:12,pitchD:.4,reverbOn:true,reverbMix:.3});
+P('👻 Horror','Graveyard Fog',{osc1Wave:'warm',osc1Unison:6,osc1Detune:40,noiseOn:true,noiseLevel:.05,noiseType:'brown',filterCutoff:600,filterRes:3,ampA:3,ampS:.4,ampR:6,lfo1Wave:'sine',lfo1Rate:.06,lfo1Depth:.5,lfo1Dest:'filter',reverbOn:true,reverbMix:.65,reverbDecay:9});
+P('👻 Horror','Sinister Bells',{osc1Wave:'metallic',osc1Unison:3,osc1Detune:15,osc2On:true,osc2Wave:'glass',osc2Level:.4,osc2Fine:7,filterCutoff:5000,ampA:.01,ampD:2,ampS:.1,ampR:3,delayOn:true,delayTime:.5,delayFeedback:.4,delayMix:.3,reverbOn:true,reverbMix:.5,reverbDecay:5});
+P('👻 Horror','Poltergeist',{osc1Wave:'sawtooth',osc1Unison:4,osc1Detune:30,osc1Drift:1,filterCutoff:3000,filterRes:5,ampA:.05,ampD:.3,ampS:.5,ampR:1,lfo1Wave:'sine',lfo1Rate:.3,lfo1Depth:.7,lfo1Dest:'pitch',lfo2Wave:'triangle',lfo2Rate:4,lfo2Depth:.3,lfo2Dest:'filter',reverbOn:true,reverbMix:.4});
+P('👻 Horror','Chainsaw',{osc1Wave:'sawtooth',osc1Unison:2,osc1Detune:5,noiseOn:true,noiseLevel:.4,filterCutoff:2000,filterRes:3,ampA:.01,ampS:.8,ampR:.2,distOn:true,distType:'fuzz',distAmount:.6,lfo1Wave:'sawtooth',lfo1Rate:20,lfo1Depth:.2,lfo1Dest:'amp'});
+P('👻 Horror','Exorcism',{osc1Wave:'choir',osc1Tune:-1,osc1Unison:5,osc1Detune:45,osc2On:true,osc2Wave:'organ3',osc2Level:.4,filterCutoff:1500,filterRes:4,ampA:.5,ampS:.7,ampR:3,distOn:true,distAmount:.3,reverbOn:true,reverbMix:.55,reverbDecay:7,lfo1Wave:'sine',lfo1Rate:.1,lfo1Depth:.4,lfo1Dest:'pitch'});
+P('👻 Horror','Void',{osc1Wave:'sine',osc1Tune:-2,noiseOn:true,noiseLevel:.03,noiseType:'brown',filterCutoff:100,filterRes:10,ampA:3,ampS:.5,ampR:8,lfo1Wave:'sine',lfo1Rate:.02,lfo1Depth:.2,lfo1Dest:'filter',reverbOn:true,reverbMix:.7,reverbDecay:10});
+P('👻 Horror','Paranormal',{osc1Wave:'hollow',osc1Unison:3,osc1Detune:20,osc2On:true,osc2Wave:'glass',osc2Level:.3,osc2Fine:15,filterCutoff:2000,filterRes:5,ampA:1,ampS:.5,ampR:4,lfo1Wave:'sine',lfo1Rate:.15,lfo1Depth:.6,lfo1Dest:'filter',delayOn:true,delayTime:.8,delayFeedback:.5,delayMix:.3,reverbOn:true,reverbMix:.5,reverbDecay:6});
+
+// --- GOLDEN RATIO ---
+P('🌀 Golden Ratio','φ Harmonic Series',{osc1Wave:'golden',osc2On:true,osc2Wave:'golden',osc2Fine:Math.round(1200*Math.log2(PHI)),osc2Level:.5,filterCutoff:3000,filterRes:1,ampA:.3,ampD:.5,ampS:.7,ampR:2,reverbOn:true,reverbMix:.3,reverbDecay:3});
+P('🌀 Golden Ratio','φ FM Bell',{osc1Wave:'sine',fmAmount:3,fmRatio:PHI,filterCutoff:6000,ampA:.005,ampD:2,ampS:.05,ampR:2,reverbOn:true,reverbMix:.35,reverbDecay:3.5});
+P('🌀 Golden Ratio','φ Spiral Pad',{osc1Wave:'goldenpad',osc1Unison:5,osc1Detune:Math.round(PHI*10),osc2On:true,osc2Wave:'warm',osc2Level:.3,osc2Fine:Math.round(PHI*3),filterCutoff:Math.round(2000*PHI),filterRes:PHI,ampA:PHI*.6,ampD:1,ampS:.618,ampR:PHI*2,chorusOn:true,chorusRate:PHI,chorusMix:.3,reverbOn:true,reverbMix:.382,reverbDecay:PHI*2.5});
+P('🌀 Golden Ratio','φ Crystal',{osc1Wave:'goldenglass',fmAmount:PHI,fmRatio:PHI,filterCutoff:5000,filterRes:PHI,ampA:.01,ampD:PHI,ampS:.382,ampR:PHI,delayOn:true,delayTime:.375*PHI,delayFeedback:.382,delayMix:.25,reverbOn:true,reverbMix:.3});
+P('🌀 Golden Ratio','φ Sacred Geometry',{osc1Wave:'golden',osc1Unison:3,osc1Detune:16,osc2On:true,osc2Wave:'golden',osc2Fine:Math.round(1200*Math.log2(PHI*PHI)),osc2Level:.618,subOn:true,subLevel:.382,filterCutoff:3000,filterRes:1.618,ampA:.618,ampD:.618,ampS:.618,ampR:1.618,chorusOn:true,chorusRate:1/PHI,chorusMix:.382,reverbOn:true,reverbMix:.382,reverbDecay:PHI*3});
+P('🌀 Golden Ratio','φ Warm Embrace',{osc1Wave:'goldenpad',osc1Unison:4,osc1Detune:12,filterCutoff:2500,filterRes:.5,ampA:1,ampD:.8,ampS:.75,ampR:3,reverbOn:true,reverbMix:.4,reverbDecay:4,chorusOn:true,chorusMix:.25});
+P('🌀 Golden Ratio','φ Deep Meditation',{osc1Wave:'goldendeep',osc1Unison:3,osc1Detune:8,subOn:true,subLevel:.382,filterCutoff:800,filterRes:1,ampA:2,ampD:1,ampS:.618,ampR:5,reverbOn:true,reverbMix:.5,reverbDecay:7,masterTuning:432});
+P('🌀 Golden Ratio','φ Singing Bowl',{osc1Wave:'goldenbell',fmAmount:PHI,fmRatio:PHI*2,filterCutoff:4000,filterRes:2,ampA:.01,ampD:3,ampS:.1,ampR:4,reverbOn:true,reverbMix:.45,reverbDecay:5});
+P('🌀 Golden Ratio','φ Morning Dew',{osc1Wave:'goldensine',osc2On:true,osc2Wave:'goldenglass',osc2Level:.382,osc2Fine:Math.round(PHI*5),filterCutoff:4500,filterRes:.618,ampA:.3,ampD:.618,ampS:.618,ampR:2,chorusOn:true,chorusMix:.2,reverbOn:true,reverbMix:.3,reverbDecay:2.5});
+P('🌀 Golden Ratio','φ Ocean Waves',{osc1Wave:'goldenwind',osc1Unison:6,osc1Detune:20,noiseOn:true,noiseLevel:.05,noiseType:'pink',filterCutoff:1800,filterRes:1.618,ampA:2,ampS:.5,ampR:4,lfo1Wave:'sine',lfo1Rate:.1*PHI,lfo1Depth:.4,lfo1Dest:'filter',reverbOn:true,reverbMix:.55,reverbDecay:6});
+P('🌀 Golden Ratio','φ String Quartet',{osc1Wave:'goldenstr',osc1Unison:4,osc1Detune:10,osc2On:true,osc2Wave:'goldenstr',osc2Fine:5,osc2Level:.382,filterCutoff:3500,filterRes:.5,ampA:.5,ampD:.5,ampS:.85,ampR:1.618,reverbOn:true,reverbMix:.25,reverbDecay:2.5});
+P('🌀 Golden Ratio','φ Cathedral',{osc1Wave:'goldenorgan',osc2On:true,osc2Wave:'goldenorgan',osc2Tune:1,osc2Level:.382,subOn:true,subLevel:.3,filterCutoff:4000,ampA:.2,ampS:1,ampR:.8,reverbOn:true,reverbMix:.55,reverbDecay:7});
+P('🌀 Golden Ratio','φ Choir of Angels',{osc1Wave:'goldenchoir',osc1Unison:5,osc1Detune:15,osc2On:true,osc2Wave:'goldenchoir',osc2Fine:Math.round(1200*Math.log2(PHI)),osc2Level:.4,filterCutoff:3000,filterRes:.8,ampA:.8,ampD:.5,ampS:.7,ampR:3,reverbOn:true,reverbMix:.5,reverbDecay:5,masterTuning:432});
+P('🌀 Golden Ratio','φ Sunlight',{osc1Wave:'goldensine',osc1Unison:3,osc1Detune:6,filterCutoff:5000,filterRes:.3,ampA:.5,ampD:.382,ampS:.8,ampR:2,chorusOn:true,chorusRate:PHI*.5,chorusMix:.25,reverbOn:true,reverbMix:.2,reverbDecay:2});
+P('🌀 Golden Ratio','φ Moonrise',{osc1Wave:'goldenpad',osc1Unison:4,osc1Detune:18,filterCutoff:1200,filterRes:2,ampA:1.618,ampD:1,ampS:.5,ampR:4,lfo1Wave:'sine',lfo1Rate:.08,lfo1Depth:.3,lfo1Dest:'filter',reverbOn:true,reverbMix:.5,reverbDecay:6});
+P('🌀 Golden Ratio','φ Floating',{osc1Wave:'golden',osc1Unison:6,osc1Detune:22,osc2On:true,osc2Wave:'goldenpad',osc2Level:.3,filterCutoff:2200,filterRes:1,ampA:1.5,ampS:.618,ampR:5,chorusOn:true,chorusMix:.35,reverbOn:true,reverbMix:.45,reverbDecay:5,delayOn:true,delayTime:.618,delayFeedback:.3,delayMix:.15});
+P('🌀 Golden Ratio','φ Heartbeat',{osc1Wave:'goldendeep',subOn:true,subLevel:.618,subOct:-2,filterCutoff:300,filterRes:1.618,ampA:.05,ampD:.2,ampS:0,ampR:.382,lfo1Wave:'sine',lfo1Rate:1.0/PHI,lfo1Depth:.8,lfo1Dest:'amp',reverbOn:true,reverbMix:.3});
+P('🌀 Golden Ratio','φ Forest',{osc1Wave:'goldenwind',osc1Unison:3,osc1Detune:12,noiseOn:true,noiseLevel:.03,noiseType:'brown',filterCutoff:2000,filterRes:1,ampA:1,ampS:.618,ampR:3,lfo1Wave:'triangle',lfo1Rate:.2,lfo1Depth:.2,lfo1Dest:'filter',reverbOn:true,reverbMix:.4,reverbDecay:4});
+P('🌀 Golden Ratio','φ Waterfall',{osc1Wave:'goldenglass',osc1Unison:4,osc1Detune:15,noiseOn:true,noiseLevel:.08,noiseType:'pink',filterCutoff:3000,filterRes:1.618,ampA:.8,ampS:.5,ampR:3,lfo1Wave:'sine',lfo1Rate:.15,lfo1Depth:.5,lfo1Dest:'filter',reverbOn:true,reverbMix:.5,reverbDecay:5,delayOn:true,delayTime:.618,delayFeedback:.25,delayMix:.2});
+P('🌀 Golden Ratio','φ Breathing',{osc1Wave:'goldenpad',osc1Unison:3,osc1Detune:8,filterCutoff:1500,filterRes:.618,ampA:.618,ampS:.618,ampR:1.618,lfo1Wave:'sine',lfo1Rate:.382,lfo1Depth:.5,lfo1Dest:'amp',reverbOn:true,reverbMix:.4,reverbDecay:4,masterTuning:432});
+P('🌀 Golden Ratio','φ Fibonacci Bass',{osc1Wave:'goldendeep',osc1Tune:-1,subOn:true,subLevel:.618,filterCutoff:Math.round(500*PHI),filterRes:PHI*2,filtA:.01,filtD:.618,filtS:.382,filterEnvAmt:3000,ampA:.01,ampD:.382,ampS:.618,ampR:.382,playMode:'mono'});
+P('🌀 Golden Ratio','φ Golden Keys',{osc1Wave:'goldensine',osc2On:true,osc2Wave:'goldenbell',osc2Level:.3,fmAmount:1,fmRatio:PHI,filterCutoff:3500,ampA:.005,ampD:.618,ampS:.382,ampR:.382,chorusOn:true,chorusMix:.25,reverbOn:true,reverbMix:.2});
+P('🌀 Golden Ratio','φ Nebula',{osc1Wave:'goldenwind',osc1Unison:7,osc1Detune:30,osc2On:true,osc2Wave:'goldenpad',osc2Level:.3,filterCutoff:1500,filterRes:2,ampA:2.5,ampD:1,ampS:.5,ampR:6,lfo1Wave:'sine',lfo1Rate:.05,lfo1Depth:.4,lfo1Dest:'filter',reverbOn:true,reverbMix:.6,reverbDecay:8,chorusOn:true,chorusMix:.3});
+P('🌀 Golden Ratio','φ Lullaby',{osc1Wave:'goldensine',osc1Unison:2,osc1Detune:5,osc2On:true,osc2Wave:'goldenpad',osc2Level:.25,filterCutoff:2000,filterRes:.5,ampA:.5,ampD:.618,ampS:.618,ampR:2.5,reverbOn:true,reverbMix:.35,reverbDecay:3.5,masterTuning:432});
+P('🌀 Golden Ratio','φ Temple Gong',{osc1Wave:'goldenbell',osc2On:true,osc2Wave:'metallic',osc2Fine:Math.round(1200*Math.log2(PHI)),osc2Level:.4,filterCutoff:5000,ampA:.005,ampD:4,ampS:.05,ampR:5,reverbOn:true,reverbMix:.55,reverbDecay:7});
+P('🌀 Golden Ratio','φ Wind Chimes',{osc1Wave:'goldenglass',fmAmount:2,fmRatio:PHI*3,filterCutoff:6000,ampA:.002,ampD:1.618,ampS:0,ampR:1.618,delayOn:true,delayTime:.382,delayFeedback:.45,delayMix:.3,reverbOn:true,reverbMix:.4,reverbDecay:4});
+P('🌀 Golden Ratio','φ Calm Sea',{osc1Wave:'goldenpad',osc1Unison:5,osc1Detune:16,noiseOn:true,noiseLevel:.02,noiseType:'brown',filterCutoff:1000,filterRes:1,ampA:3,ampS:.382,ampR:6,lfo1Wave:'sine',lfo1Rate:.06,lfo1Depth:.3,lfo1Dest:'filter',reverbOn:true,reverbMix:.55,reverbDecay:8,masterTuning:432});
+P('🌀 Golden Ratio','φ Aurora',{osc1Wave:'golden',osc1Unison:5,osc1Detune:20,osc2On:true,osc2Wave:'goldenchoir',osc2Level:.3,filterCutoff:2500,filterRes:.618,ampA:1.618,ampS:.618,ampR:3,chorusOn:true,chorusRate:.618,chorusMix:.3,phaserOn:true,phaserRate:.1,phaserMix:.2,reverbOn:true,reverbMix:.45,reverbDecay:5});
+P('🌀 Golden Ratio','φ Zen Garden',{osc1Wave:'goldenbell',osc2On:true,osc2Wave:'goldensine',osc2Level:.382,filterCutoff:3000,filterRes:1,ampA:.1,ampD:2,ampS:.2,ampR:3,delayOn:true,delayTime:.618,delayFeedback:.382,delayMix:.25,reverbOn:true,reverbMix:.45,reverbDecay:5,masterTuning:432});
+P('🌀 Golden Ratio','φ Starlight',{osc1Wave:'goldenglass',osc1Unison:4,osc1Detune:12,osc2On:true,osc2Wave:'goldensine',osc2Level:.25,osc2Fine:Math.round(PHI*7),filterCutoff:4000,filterRes:.382,ampA:.3,ampD:1,ampS:.618,ampR:2.5,delayOn:true,delayTime:.382,delayFeedback:.3,delayMix:.2,reverbOn:true,reverbMix:.4,reverbDecay:4});
+
+// --- ORGANS (30) ---
+P('🎵 Organs','Hammond Full Draw',{osc1Wave:'organ1',osc2On:true,osc2Wave:'organ2',osc2Level:.6,subOn:true,subLevel:.4,filterCutoff:8000,ampA:.003,ampS:1,ampR:.04,distOn:true,distType:'soft',distAmount:.2,chorusOn:true,chorusRate:6.1,chorusMix:.35});
+P('🎵 Organs','Perc Click Organ',{osc1Wave:'organ1',osc2On:true,osc2Wave:'organ4',osc2Level:.3,filterCutoff:6000,filtA:.001,filtD:.1,filtS:.5,filterEnvAmt:3000,ampA:.001,ampD:.15,ampS:.7,ampR:.04,chorusOn:true,chorusMix:.2});
+P('🎵 Organs','Ballad B3',{osc1Wave:'organ2',osc2On:true,osc2Wave:'organ1',osc2Level:.4,filterCutoff:5000,ampA:.005,ampS:1,ampR:.06,chorusOn:true,chorusRate:5.8,chorusMix:.35,reverbOn:true,reverbMix:.15});
+P('🎵 Organs','Theater Organ',{osc1Wave:'organ4',osc2On:true,osc2Wave:'organ5',osc2Level:.5,subOn:true,subLevel:.5,filterCutoff:6000,ampA:.02,ampS:1,ampR:.3,reverbOn:true,reverbMix:.35,reverbDecay:4});
+P('🎵 Organs','Church Flute 8ft',{osc1Wave:'organ5',filterCutoff:4000,filterRes:.5,ampA:.05,ampS:1,ampR:.2,reverbOn:true,reverbMix:.4,reverbDecay:5});
+P('🎵 Organs','Reed Stop',{osc1Wave:'organ6',filterCutoff:5000,filterRes:1,ampA:.01,ampS:1,ampR:.08,reverbOn:true,reverbMix:.3,reverbDecay:3});
+P('🎵 Organs','Diapason Principal',{osc1Wave:'organ7',osc2On:true,osc2Wave:'organ5',osc2Level:.3,filterCutoff:5500,ampA:.03,ampS:1,ampR:.25,reverbOn:true,reverbMix:.35,reverbDecay:4.5});
+P('🎵 Organs','Baroque Positiv',{osc1Wave:'organ8',osc2On:true,osc2Wave:'organ6',osc2Level:.4,filterCutoff:6000,ampA:.01,ampS:1,ampR:.15,reverbOn:true,reverbMix:.3,reverbDecay:3.5});
+P('🎵 Organs','Full Swell',{osc1Wave:'organ4',osc2On:true,osc2Wave:'organ7',osc2Level:.6,subOn:true,subLevel:.5,filterCutoff:7000,ampA:.05,ampS:1,ampR:.4,distOn:true,distAmount:.1,reverbOn:true,reverbMix:.4,reverbDecay:5});
+P('🎵 Organs','Vox Humana',{osc1Wave:'organ6',osc2On:true,osc2Wave:'formant_a',osc2Level:.2,filterCutoff:3000,filterRes:2,ampA:.03,ampS:1,ampR:.15,lfo1Wave:'sine',lfo1Rate:6,lfo1Depth:.08,lfo1Dest:'pitch',reverbOn:true,reverbMix:.25});
+P('🎵 Organs','Tremulant Flute',{osc1Wave:'organ5',filterCutoff:3500,ampA:.02,ampS:1,ampR:.1,lfo1Wave:'sine',lfo1Rate:6.5,lfo1Depth:.12,lfo1Dest:'amp',reverbOn:true,reverbMix:.3,reverbDecay:3});
+P('🎵 Organs','Celeste 8ft',{osc1Wave:'organ5',osc2On:true,osc2Wave:'organ5',osc2Fine:8,osc2Level:.5,filterCutoff:4000,ampA:.04,ampS:1,ampR:.3,reverbOn:true,reverbMix:.35,reverbDecay:4});
+P('🎵 Organs','Tibia Clausa',{osc1Wave:'tube',osc2On:true,osc2Wave:'organ5',osc2Level:.3,filterCutoff:2500,filterRes:.5,ampA:.03,ampS:1,ampR:.2,reverbOn:true,reverbMix:.35,reverbDecay:4,chorusOn:true,chorusMix:.15});
+P('🎵 Organs','Gospel Shout',{osc1Wave:'organ1',osc2On:true,osc2Wave:'organ4',osc2Level:.7,subOn:true,subLevel:.4,filterCutoff:7000,ampA:.003,ampS:1,ampR:.04,distOn:true,distType:'soft',distAmount:.35,chorusOn:true,chorusRate:6.2,chorusMix:.4});
+P('🎵 Organs','Jimmy Smith Jazz',{osc1Wave:'organ2',osc2On:true,osc2Wave:'organ1',osc2Level:.3,filterCutoff:4500,ampA:.004,ampS:1,ampR:.05,chorusOn:true,chorusRate:5.5,chorusMix:.3,distOn:true,distAmount:.12});
+P('🎵 Organs','Wurlitzer Theater',{osc1Wave:'organ4',osc2On:true,osc2Wave:'organ7',osc2Level:.5,subOn:true,subLevel:.3,filterCutoff:5500,ampA:.02,ampS:1,ampR:.3,chorusOn:true,chorusMix:.2,reverbOn:true,reverbMix:.3,reverbDecay:3});
+P('🎵 Organs','Harmonium',{osc1Wave:'organ6',osc2On:true,osc2Wave:'reed',osc2Level:.3,filterCutoff:4000,filterRes:1,ampA:.05,ampS:1,ampR:.2,lfo1Wave:'sine',lfo1Rate:5,lfo1Depth:.06,lfo1Dest:'pitch'});
+P('🎵 Organs','Accordion',{osc1Wave:'organ6',osc2On:true,osc2Wave:'organ8',osc2Fine:6,osc2Level:.5,filterCutoff:5000,filterRes:.8,ampA:.02,ampS:1,ampR:.08,lfo1Wave:'sine',lfo1Rate:5.5,lfo1Depth:.04,lfo1Dest:'pitch'});
+P('🎵 Organs','Bandoneon',{osc1Wave:'reed',osc2On:true,osc2Wave:'organ6',osc2Level:.4,filterCutoff:4500,filterRes:1.5,ampA:.04,ampD:.2,ampS:.9,ampR:.15});
+P('🎵 Organs','Pipe Mixture',{osc1Wave:'organ8',osc2On:true,osc2Wave:'organ5',osc2Tune:1,osc2Level:.4,filterCutoff:6000,ampA:.02,ampS:1,ampR:.2,reverbOn:true,reverbMix:.4,reverbDecay:5});
+P('🎵 Organs','Liturgical Full',{osc1Wave:'organ4',osc2On:true,osc2Wave:'organ6',osc2Level:.5,subOn:true,subLevel:.6,subOct:-2,filterCutoff:6000,ampA:.08,ampS:1,ampR:.5,reverbOn:true,reverbMix:.5,reverbDecay:7});
+P('🎵 Organs','Electric Combo',{osc1Wave:'organ3',osc2On:true,osc2Wave:'organ1',osc2Level:.4,filterCutoff:5000,ampA:.003,ampS:1,ampR:.03,distOn:true,distAmount:.15,phaserOn:true,phaserRate:.8,phaserMix:.3});
+P('🎵 Organs','Prog Rock Organ',{osc1Wave:'organ1',osc2On:true,osc2Wave:'organ3',osc2Level:.5,filterCutoff:6500,ampA:.003,ampS:1,ampR:.04,distOn:true,distType:'hard',distAmount:.25,chorusOn:true,chorusMix:.3,delayOn:true,delayTime:.3,delayMix:.15});
+P('🎵 Organs','Calliope',{osc1Wave:'tube',filterCutoff:3000,filterRes:1,ampA:.01,ampS:1,ampR:.1,reverbOn:true,reverbMix:.25,reverbDecay:2});
+P('🎵 Organs','Musette',{osc1Wave:'organ6',osc2On:true,osc2Wave:'organ6',osc2Fine:12,osc2Level:.5,filterCutoff:5000,ampA:.02,ampS:1,ampR:.1});
+P('🎵 Organs','Portative Organ',{osc1Wave:'organ5',filterCutoff:3500,ampA:.01,ampS:.9,ampR:.08,reverbOn:true,reverbMix:.2});
+P('🎵 Organs','Regal',{osc1Wave:'organ6',osc2On:true,osc2Wave:'buzzsaw',osc2Level:.15,filterCutoff:3000,filterRes:2,ampA:.01,ampS:1,ampR:.1,reverbOn:true,reverbMix:.25,reverbDecay:2.5});
+P('🎵 Organs','Tonewheel Soft',{osc1Wave:'organ2',filterCutoff:3000,ampA:.005,ampS:1,ampR:.04,chorusOn:true,chorusRate:5.5,chorusMix:.25});
+P('🎵 Organs','Indian Harmonium',{osc1Wave:'organ6',osc2On:true,osc2Wave:'reed',osc2Fine:5,osc2Level:.3,filterCutoff:3500,filterRes:1.5,ampA:.06,ampS:1,ampR:.3,lfo1Wave:'sine',lfo1Rate:5,lfo1Depth:.05,lfo1Dest:'pitch'});
+P('🎵 Organs','Glass Organ',{osc1Wave:'glass',osc2On:true,osc2Wave:'organ5',osc2Level:.3,filterCutoff:5000,ampA:.02,ampD:.3,ampS:.8,ampR:.5,reverbOn:true,reverbMix:.35,reverbDecay:3.5});
+
+// --- STRINGS (25 more) ---
+P('🎻 Strings','Viola Solo',{osc1Wave:'bowed',osc1Unison:2,osc1Detune:4,osc2On:true,osc2Wave:'stringwt',osc2Fine:2,osc2Level:.25,filterCutoff:3500,filterRes:.5,ampA:.12,ampD:.2,ampS:.85,ampR:.35,lfo1Wave:'sine',lfo1Rate:5.5,lfo1Depth:.12,lfo1Dest:'pitch',reverbOn:true,reverbMix:.2});
+P('🎻 Strings','Contrabass',{osc1Wave:'bowed',osc1Tune:-1,osc1Unison:2,osc1Detune:6,filterCutoff:2500,filterRes:.3,ampA:.2,ampD:.3,ampS:.9,ampR:.6,reverbOn:true,reverbMix:.2});
+P('🎻 Strings','Chamber Strings',{osc1Wave:'stringwt',osc1Unison:5,osc1Detune:12,osc2On:true,osc2Wave:'bowed',osc2Level:.3,filterCutoff:3800,filterRes:.3,ampA:.35,ampD:.4,ampS:.88,ampR:1.5,reverbOn:true,reverbMix:.25,reverbDecay:2.5});
+P('🎻 Strings','Film Score Legato',{osc1Wave:'stringwt',osc1Unison:7,osc1Detune:16,osc2On:true,osc2Wave:'warm',osc2Level:.3,filterCutoff:3200,filterRes:.4,ampA:.6,ampD:.5,ampS:.9,ampR:2.5,reverbOn:true,reverbMix:.35,reverbDecay:3.5,chorusOn:true,chorusMix:.2});
+P('🎻 Strings','Romantic Orchestra',{osc1Wave:'stringwt',osc1Unison:8,osc1Detune:20,osc2On:true,osc2Wave:'bowed',osc2Unison:3,osc2Detune:10,osc2Level:.4,filterCutoff:4000,filterRes:.3,ampA:.7,ampD:.5,ampS:.85,ampR:3,reverbOn:true,reverbMix:.4,reverbDecay:4,chorusOn:true,chorusMix:.25});
+P('🎻 Strings','Spiccato',{osc1Wave:'plucked',osc2On:true,osc2Wave:'stringwt',osc2Level:.3,filterCutoff:4000,filterRes:.5,filtA:.001,filtD:.1,filtS:.3,filterEnvAmt:3000,ampA:.002,ampD:.12,ampS:.15,ampR:.1,reverbOn:true,reverbMix:.15});
+P('🎻 Strings','Staccato Ensemble',{osc1Wave:'stringwt',osc1Unison:5,osc1Detune:10,filterCutoff:4500,filtA:.001,filtD:.15,filtS:.2,filterEnvAmt:4000,ampA:.003,ampD:.18,ampS:.1,ampR:.12,reverbOn:true,reverbMix:.2});
+P('🎻 Strings','Harp Pluck',{osc1Wave:'plucked',osc2On:true,osc2Wave:'sine',osc2Level:.2,filterCutoff:3000,filterRes:1,filtA:.001,filtD:.3,filtS:0,filterEnvAmt:5000,ampA:.001,ampD:.8,ampS:0,ampR:.5,reverbOn:true,reverbMix:.3,reverbDecay:3});
+P('🎻 Strings','Koto',{osc1Wave:'plucked',filterCutoff:4000,filterRes:2,filtA:.001,filtD:.15,filtS:.1,filterEnvAmt:4000,ampA:.001,ampD:.5,ampS:.05,ampR:.3,reverbOn:true,reverbMix:.2});
+P('🎻 Strings','Erhu',{osc1Wave:'bowed',filterCutoff:3000,filterRes:2,ampA:.1,ampD:.2,ampS:.85,ampR:.3,lfo1Wave:'sine',lfo1Rate:5.8,lfo1Depth:.18,lfo1Dest:'pitch',reverbOn:true,reverbMix:.2,playMode:'mono'});
+P('🎻 Strings','Fiddle',{osc1Wave:'bowed',osc2On:true,osc2Wave:'stringwt',osc2Level:.2,filterCutoff:5000,filterRes:.8,ampA:.05,ampD:.15,ampS:.9,ampR:.2,lfo1Wave:'sine',lfo1Rate:6,lfo1Depth:.1,lfo1Dest:'pitch',playMode:'mono'});
+P('🎻 Strings','Sitar Drone',{osc1Wave:'plucked',osc2On:true,osc2Wave:'resonant',osc2Level:.3,osc2Fine:2,filterCutoff:3000,filterRes:4,ampA:.005,ampD:1,ampS:.3,ampR:1.5,reverbOn:true,reverbMix:.25});
+P('🎻 Strings','Nylon Guitar',{osc1Wave:'plucked',filterCutoff:2500,filterRes:1,filtA:.001,filtD:.25,filtS:.05,filterEnvAmt:3000,ampA:.002,ampD:.6,ampS:.05,ampR:.3,reverbOn:true,reverbMix:.15});
+P('🎻 Strings','Steel Guitar',{osc1Wave:'plucked',osc2On:true,osc2Wave:'bright',osc2Level:.2,filterCutoff:4000,filterRes:1.5,filtA:.001,filtD:.2,filtS:.1,filterEnvAmt:4000,ampA:.001,ampD:.5,ampS:.1,ampR:.3,chorusOn:true,chorusMix:.15});
+P('🎻 Strings','Dulcimer',{osc1Wave:'plucked',osc2On:true,osc2Wave:'bellpar',osc2Level:.2,filterCutoff:4500,ampA:.001,ampD:.8,ampS:.05,ampR:.5,reverbOn:true,reverbMix:.25});
+P('🎻 Strings','Guzheng',{osc1Wave:'plucked',filterCutoff:3500,filterRes:1.5,filtA:.001,filtD:.2,filtS:.1,filterEnvAmt:3500,ampA:.001,ampD:.7,ampS:.08,ampR:.4,reverbOn:true,reverbMix:.2});
+P('🎻 Strings','Pad Strings Wide',{osc1Wave:'stringwt',osc1Unison:8,osc1Detune:25,osc2On:true,osc2Wave:'warm',osc2Level:.3,filterCutoff:2800,filterRes:.5,ampA:.8,ampD:.5,ampS:.85,ampR:3,chorusOn:true,chorusMix:.4,reverbOn:true,reverbMix:.35,reverbDecay:4});
+P('🎻 Strings','Dark Strings',{osc1Wave:'stringwt',osc1Unison:6,osc1Detune:18,filterCutoff:1500,filterRes:1,ampA:.6,ampD:.5,ampS:.8,ampR:2.5,reverbOn:true,reverbMix:.3,reverbDecay:3});
+P('🎻 Strings','Ethereal Strings',{osc1Wave:'stringwt',osc1Unison:6,osc1Detune:22,osc2On:true,osc2Wave:'goldenstr',osc2Level:.25,filterCutoff:3500,filterRes:.3,ampA:1,ampS:.7,ampR:4,chorusOn:true,chorusMix:.3,reverbOn:true,reverbMix:.45,reverbDecay:5});
+P('🎻 Strings','String Machine',{osc1Wave:'sawtooth',osc1Unison:6,osc1Detune:15,filterCutoff:3000,filterRes:.3,ampA:.3,ampD:.3,ampS:.9,ampR:1,chorusOn:true,chorusRate:1,chorusMix:.5});
+P('🎻 Strings','Marcato',{osc1Wave:'bowed',osc1Unison:5,osc1Detune:12,filterCutoff:4500,filtA:.001,filtD:.2,filtS:.5,filterEnvAmt:3000,ampA:.01,ampD:.25,ampS:.7,ampR:.4,reverbOn:true,reverbMix:.2});
+P('🎻 Strings','Col Legno',{osc1Wave:'plucked',osc2On:true,osc2Wave:'noise_tone',osc2Level:.15,filterCutoff:3000,ampA:.001,ampD:.15,ampS:0,ampR:.1,reverbOn:true,reverbMix:.2});
+P('🎻 Strings','Sul Tasto',{osc1Wave:'bowed',osc1Unison:4,osc1Detune:8,filterCutoff:1800,filterRes:.5,ampA:.4,ampD:.3,ampS:.85,ampR:1.5,reverbOn:true,reverbMix:.3,reverbDecay:3});
+P('🎻 Strings','Octave Strings',{osc1Wave:'stringwt',osc1Unison:6,osc1Detune:14,osc2On:true,osc2Wave:'stringwt',osc2Tune:1,osc2Unison:4,osc2Detune:12,osc2Level:.5,filterCutoff:4000,ampA:.5,ampS:.85,ampR:2,reverbOn:true,reverbMix:.3,reverbDecay:3});
+P('🎻 Strings','Cinematic Sustain',{osc1Wave:'bowed',osc1Unison:8,osc1Detune:20,osc2On:true,osc2Wave:'stringwt',osc2Unison:4,osc2Detune:15,osc2Level:.4,filterCutoff:3500,filterRes:.4,ampA:1,ampD:.5,ampS:.9,ampR:4,chorusOn:true,chorusMix:.2,reverbOn:true,reverbMix:.45,reverbDecay:5});
+
+// --- GOLDEN RATIO THERAPY (20 more) ---
+P('🌀 Golden Ratio','φ 396Hz Liberation',{osc1Wave:'golden396',osc1Unison:3,osc1Detune:6,filterCutoff:2000,filterRes:.5,ampA:1.5,ampS:.618,ampR:4,reverbOn:true,reverbMix:.45,reverbDecay:5,masterTuning:432});
+P('🌀 Golden Ratio','φ 528Hz DNA Repair',{osc1Wave:'golden528',osc1Unison:4,osc1Detune:8,osc2On:true,osc2Wave:'goldensine',osc2Level:.3,filterCutoff:2500,filterRes:.618,ampA:1.618,ampS:.618,ampR:5,reverbOn:true,reverbMix:.5,reverbDecay:6,masterTuning:432});
+P('🌀 Golden Ratio','φ 639Hz Connection',{osc1Wave:'golden639',osc1Unison:3,osc1Detune:6,osc2On:true,osc2Wave:'goldenpad',osc2Level:.25,filterCutoff:2200,ampA:1.2,ampS:.618,ampR:4,chorusOn:true,chorusMix:.2,reverbOn:true,reverbMix:.45,reverbDecay:5,masterTuning:432});
+P('🌀 Golden Ratio','φ 741Hz Awakening',{osc1Wave:'golden741',osc1Unison:3,osc1Detune:10,filterCutoff:3000,filterRes:.382,ampA:1,ampS:.618,ampR:3.5,reverbOn:true,reverbMix:.4,reverbDecay:4.5,masterTuning:432});
+P('🌀 Golden Ratio','φ 852Hz Intuition',{osc1Wave:'golden852',osc1Unison:4,osc1Detune:8,osc2On:true,osc2Wave:'goldenchoir',osc2Level:.2,filterCutoff:2800,ampA:1.5,ampS:.618,ampR:5,reverbOn:true,reverbMix:.5,reverbDecay:6,masterTuning:432});
+P('🌀 Golden Ratio','φ 963Hz Crown',{osc1Wave:'golden963',osc1Unison:3,osc1Detune:6,filterCutoff:3500,filterRes:.3,ampA:1.618,ampS:.618,ampR:5,reverbOn:true,reverbMix:.5,reverbDecay:7,masterTuning:432});
+P('🌀 Golden Ratio','φ Theta 4Hz Heal',{osc1Wave:'goldentheta',osc1Unison:4,osc1Detune:10,filterCutoff:1500,filterRes:1,ampA:2,ampS:.5,ampR:6,lfo1Wave:'sine',lfo1Rate:4,lfo1Depth:.08,lfo1Dest:'amp',reverbOn:true,reverbMix:.55,reverbDecay:8,masterTuning:432});
+P('🌀 Golden Ratio','φ Alpha 10Hz Focus',{osc1Wave:'goldenalpha',osc1Unison:3,osc1Detune:8,filterCutoff:2000,filterRes:.8,ampA:1.5,ampS:.618,ampR:5,lfo1Wave:'sine',lfo1Rate:10,lfo1Depth:.04,lfo1Dest:'amp',reverbOn:true,reverbMix:.45,reverbDecay:6,masterTuning:432});
+P('🌀 Golden Ratio','φ Deep Sleep',{osc1Wave:'goldendeep',osc1Unison:3,osc1Detune:6,subOn:true,subLevel:.382,filterCutoff:600,filterRes:.618,ampA:3,ampS:.382,ampR:8,lfo1Wave:'sine',lfo1Rate:2,lfo1Depth:.06,lfo1Dest:'filter',reverbOn:true,reverbMix:.6,reverbDecay:10,masterTuning:432});
+P('🌀 Golden Ratio','φ Heart Coherence',{osc1Wave:'golden528',osc2On:true,osc2Wave:'golden639',osc2Level:.382,filterCutoff:2000,ampA:1.618,ampS:.618,ampR:5,chorusOn:true,chorusRate:.618,chorusMix:.2,reverbOn:true,reverbMix:.5,reverbDecay:6,masterTuning:432});
+P('🌀 Golden Ratio','φ Schumann 7.83',{osc1Wave:'goldentheta',osc1Unison:4,osc1Detune:8,filterCutoff:1200,filterRes:1.618,ampA:2.5,ampS:.5,ampR:7,lfo1Wave:'sine',lfo1Rate:7.83,lfo1Depth:.03,lfo1Dest:'amp',reverbOn:true,reverbMix:.55,reverbDecay:8,masterTuning:432});
+P('🌀 Golden Ratio','φ Rainforest',{osc1Wave:'goldenwind',osc1Unison:4,osc1Detune:12,noiseOn:true,noiseLevel:.04,noiseType:'pink',osc2On:true,osc2Wave:'goldenbell',osc2Level:.15,filterCutoff:2500,ampA:2,ampS:.5,ampR:5,lfo1Wave:'triangle',lfo1Rate:.15,lfo1Depth:.25,lfo1Dest:'filter',reverbOn:true,reverbMix:.5,reverbDecay:6,masterTuning:432});
+P('🌀 Golden Ratio','φ Inner Peace',{osc1Wave:'golden528',osc1Unison:5,osc1Detune:10,osc2On:true,osc2Wave:'goldenpad',osc2Level:.3,filterCutoff:1800,filterRes:.5,ampA:2,ampS:.618,ampR:6,chorusOn:true,chorusMix:.25,reverbOn:true,reverbMix:.5,reverbDecay:7,masterTuning:432});
+P('🌀 Golden Ratio','φ Golden Stream',{osc1Wave:'goldenwind',osc1Unison:5,osc1Detune:14,osc2On:true,osc2Wave:'golden639',osc2Level:.25,filterCutoff:2000,filterRes:.618,ampA:1.5,ampS:.5,ampR:5,lfo1Wave:'sine',lfo1Rate:.08,lfo1Depth:.3,lfo1Dest:'filter',reverbOn:true,reverbMix:.55,reverbDecay:7,masterTuning:432});
+P('🌀 Golden Ratio','φ Tibetan Bowl',{osc1Wave:'goldenbell',osc2On:true,osc2Wave:'golden852',osc2Level:.3,osc2Fine:Math.round(1200*Math.log2(1.618)),filterCutoff:4000,ampA:.01,ampD:4,ampS:.1,ampR:5,reverbOn:true,reverbMix:.5,reverbDecay:7,masterTuning:432});
+P('🌀 Golden Ratio','φ Crystal Cave',{osc1Wave:'goldenglass',osc1Unison:4,osc1Detune:10,osc2On:true,osc2Wave:'golden963',osc2Level:.2,filterCutoff:3000,filterRes:1,ampA:1,ampD:1,ampS:.618,ampR:4,delayOn:true,delayTime:.618,delayFeedback:.3,delayMix:.2,reverbOn:true,reverbMix:.5,reverbDecay:6,masterTuning:432});
+P('🌀 Golden Ratio','φ Womb Tone',{osc1Wave:'goldendeep',osc1Tune:-1,subOn:true,subLevel:.618,subOct:-2,filterCutoff:300,filterRes:1,ampA:3,ampS:.382,ampR:8,reverbOn:true,reverbMix:.5,reverbDecay:8,masterTuning:432});
+P('🌀 Golden Ratio','φ Dawn Chorus',{osc1Wave:'goldenchoir',osc1Unison:5,osc1Detune:15,osc2On:true,osc2Wave:'golden528',osc2Level:.3,filterCutoff:2500,filterRes:.5,ampA:2,ampS:.618,ampR:5,chorusOn:true,chorusMix:.3,reverbOn:true,reverbMix:.45,reverbDecay:5,masterTuning:432});
+P('🌀 Golden Ratio','φ Sacred Water',{osc1Wave:'golden396',osc2On:true,osc2Wave:'golden528',osc2Level:.382,osc2Fine:Math.round(PHI*4),filterCutoff:1800,filterRes:.618,ampA:2,ampS:.5,ampR:6,lfo1Wave:'sine',lfo1Rate:.1,lfo1Depth:.2,lfo1Dest:'filter',reverbOn:true,reverbMix:.55,reverbDecay:7,masterTuning:432});
+P('🌀 Golden Ratio','φ Eternal Light',{osc1Wave:'golden963',osc1Unison:5,osc1Detune:12,osc2On:true,osc2Wave:'goldenchoir',osc2Level:.3,filterCutoff:3000,filterRes:.382,ampA:2.5,ampS:.618,ampR:7,chorusOn:true,chorusRate:.618,chorusMix:.25,reverbOn:true,reverbMix:.55,reverbDecay:8,masterTuning:432});
+
+// --- HORROR (20 more) ---
+P('👻 Horror','Sleep Paralysis',{osc1Wave:'formant_u',osc1Unison:3,osc1Detune:25,osc2On:true,osc2Wave:'breath',osc2Level:.3,filterCutoff:1000,filterRes:5,ampA:2,ampS:.5,ampR:5,lfo1Wave:'sine',lfo1Rate:.08,lfo1Depth:.6,lfo1Dest:'filter',reverbOn:true,reverbMix:.6,reverbDecay:8});
+P('👻 Horror','Bone Crack',{osc1Wave:'noise_tone',noiseOn:true,noiseLevel:.5,filterCutoff:2000,filterRes:8,ampA:.001,ampD:.05,ampS:0,ampR:.03,pitchEnvAmt:20,pitchD:.03,reverbOn:true,reverbMix:.2});
+P('👻 Horror','Crypt Ambience',{osc1Wave:'hollow',osc1Unison:4,osc1Detune:35,noiseOn:true,noiseLevel:.04,noiseType:'brown',filterCutoff:500,filterRes:4,ampA:3,ampS:.4,ampR:7,lfo1Wave:'sine',lfo1Rate:.04,lfo1Depth:.4,lfo1Dest:'filter',reverbOn:true,reverbMix:.65,reverbDecay:10});
+P('👻 Horror','Distorted Radio',{osc1Wave:'digital',noiseOn:true,noiseLevel:.15,filterCutoff:2500,filterRes:5,ampA:.01,ampS:.6,ampR:.3,distOn:true,distType:'hard',distAmount:.5,lfo1Wave:'square',lfo1Rate:3,lfo1Depth:.3,lfo1Dest:'amp'});
+P('👻 Horror','Flesh Rip',{osc1Wave:'distorted',noiseOn:true,noiseLevel:.6,filterCutoff:3000,filterRes:6,filtA:.001,filtD:.08,filtS:.1,filterEnvAmt:5000,ampA:.001,ampD:.12,ampS:0,ampR:.08,distOn:true,distAmount:.6});
+P('👻 Horror','Dripping Cave',{osc1Wave:'bellpar',filterCutoff:4000,ampA:.001,ampD:.3,ampS:0,ampR:.4,delayOn:true,delayTime:.8,delayFeedback:.5,delayMix:.4,reverbOn:true,reverbMix:.5,reverbDecay:6,lfo1Wave:'sine',lfo1Rate:.07,lfo1Depth:.2,lfo1Dest:'amp'});
+P('👻 Horror','Demon Choir',{osc1Wave:'formant_o',osc1Tune:-2,osc1Unison:5,osc1Detune:40,osc2On:true,osc2Wave:'choir',osc2Tune:-1,osc2Level:.5,filterCutoff:1500,filterRes:3,ampA:.8,ampS:.6,ampR:4,distOn:true,distAmount:.3,reverbOn:true,reverbMix:.55,reverbDecay:7});
+P('👻 Horror','Tinnitus',{osc1Wave:'sine',osc2On:true,osc2Wave:'sine',osc2Fine:90,osc2Level:.5,filterCutoff:8000,ampA:.5,ampS:.4,ampR:3,reverbOn:true,reverbMix:.2});
+P('👻 Horror','Morgue Ambience',{noiseOn:true,noiseLevel:.08,noiseType:'brown',osc1Wave:'hollow',osc1Level:.15,osc1Unison:3,osc1Detune:30,filterCutoff:400,filterRes:3,ampA:3,ampS:.3,ampR:8,lfo1Wave:'sine',lfo1Rate:.03,lfo1Depth:.5,lfo1Dest:'filter',reverbOn:true,reverbMix:.6,reverbDecay:10});
+P('👻 Horror','Swarm Intelligence',{osc1Wave:'ringwt',osc1Unison:8,osc1Detune:60,osc1Drift:1,osc2On:true,osc2Wave:'noise_tone',osc2Level:.3,filterCutoff:4000,filterRes:3,ampA:.5,ampS:.6,ampR:2,lfo1Wave:'sine',lfo1Rate:12,lfo1Depth:.25,lfo1Dest:'pitch',reverbOn:true,reverbMix:.3});
+P('👻 Horror','Whispering Walls',{osc1Wave:'breath',osc1Unison:4,osc1Detune:20,osc2On:true,osc2Wave:'formant_e',osc2Level:.2,filterCutoff:2000,filterRes:4,ampA:1.5,ampS:.4,ampR:4,lfo1Wave:'sine',lfo1Rate:.2,lfo1Depth:.5,lfo1Dest:'filter',delayOn:true,delayTime:.6,delayFeedback:.4,delayMix:.3,reverbOn:true,reverbMix:.5,reverbDecay:6});
+P('👻 Horror','Abandoned Hospital',{noiseOn:true,noiseLevel:.06,noiseType:'pink',osc1Wave:'resonant',osc1Level:.2,filterCutoff:800,filterRes:6,ampA:2,ampS:.3,ampR:6,lfo1Wave:'triangle',lfo1Rate:.05,lfo1Depth:.5,lfo1Dest:'filter',reverbOn:true,reverbMix:.6,reverbDecay:8,delayOn:true,delayTime:1,delayFeedback:.4,delayMix:.2});
+P('👻 Horror','Children Singing',{osc1Wave:'formant_a',osc2On:true,osc2Wave:'formant_e',osc2Fine:2,osc2Level:.4,filterCutoff:2500,filterRes:2,ampA:.3,ampS:.5,ampR:2,lfo1Wave:'sine',lfo1Rate:.15,lfo1Depth:.3,lfo1Dest:'pitch',reverbOn:true,reverbMix:.45,reverbDecay:5,delayOn:true,delayTime:.5,delayFeedback:.35,delayMix:.2});
+P('👻 Horror','Clock Tower',{osc1Wave:'bellpar',osc2On:true,osc2Wave:'metallic',osc2Level:.3,filterCutoff:3000,ampA:.01,ampD:2,ampS:0,ampR:2.5,delayOn:true,delayTime:1,delayFeedback:.3,delayMix:.25,reverbOn:true,reverbMix:.4,reverbDecay:6});
+P('👻 Horror','Sewer Drone',{osc1Wave:'tube',osc1Tune:-2,osc1Unison:3,osc1Detune:20,noiseOn:true,noiseLevel:.06,noiseType:'brown',filterCutoff:300,filterRes:5,ampA:2,ampS:.5,ampR:5,distOn:true,distAmount:.2,reverbOn:true,reverbMix:.5,reverbDecay:6});
+P('👻 Horror','Mirror Dimension',{osc1Wave:'inharmon',osc2On:true,osc2Wave:'glass',osc2Fine:50,osc2Level:.4,filterCutoff:4000,filterRes:2,ampA:.5,ampS:.5,ampR:3,phaserOn:true,phaserRate:.1,phaserMix:.4,reverbOn:true,reverbMix:.5,reverbDecay:5});
+P('👻 Horror','Scratching Inside',{osc1Wave:'distorted',noiseOn:true,noiseLevel:.3,noiseType:'pink',filterCutoff:3000,filterRes:4,ampA:.01,ampD:.2,ampS:.3,ampR:.5,lfo1Wave:'sawtooth',lfo1Rate:8,lfo1Depth:.3,lfo1Dest:'filter',reverbOn:true,reverbMix:.3});
+P('👻 Horror','Last Breath',{osc1Wave:'breath',noiseOn:true,noiseLevel:.1,noiseType:'pink',filterCutoff:1500,filterRes:3,ampA:.3,ampD:1.5,ampS:.1,ampR:3,lfo1Wave:'sine',lfo1Rate:.5,lfo1Depth:.7,lfo1Dest:'amp',reverbOn:true,reverbMix:.5,reverbDecay:5});
+P('👻 Horror','Doll Music Box',{osc1Wave:'bellpar',filterCutoff:5000,ampA:.002,ampD:.4,ampS:0,ampR:.3,delayOn:true,delayTime:.25,delayFeedback:.3,delayMix:.2,reverbOn:true,reverbMix:.35,phaserOn:true,phaserRate:.15,phaserMix:.3,lfo1Wave:'sine',lfo1Rate:.05,lfo1Depth:.15,lfo1Dest:'pitch'});
+P('👻 Horror','Black Mass',{osc1Wave:'organ6',osc1Tune:-1,osc2On:true,osc2Wave:'choir',osc2Tune:-2,osc2Level:.5,subOn:true,subLevel:.6,subOct:-2,filterCutoff:2000,filterRes:2,ampA:.5,ampS:.8,ampR:3,distOn:true,distAmount:.25,reverbOn:true,reverbMix:.55,reverbDecay:8});
+
+// --- INDUSTRIAL / CYBERPUNK SEQUENCER (30) ---
+P('⚡ Industrial','Machine Pulse',{osc1Wave:'digital',filterCutoff:1500,filterRes:6,filtA:.001,filtD:.15,filtS:.1,filterEnvAmt:4000,ampA:.001,ampD:.15,ampS:0,ampR:.05,distOn:true,distAmount:.4,arpOn:true,arpRate:16,arpOctaves:1});
+P('⚡ Industrial','Factory Floor',{osc1Wave:'hardsync',noiseOn:true,noiseLevel:.15,filterCutoff:2000,filterRes:5,filtA:.001,filtD:.2,filtS:.2,filterEnvAmt:3000,ampA:.002,ampD:.2,ampS:.3,ampR:.1,distOn:true,distType:'hard',distAmount:.35,arpOn:true,arpRate:8});
+P('⚡ Industrial','Piston Bass',{osc1Wave:'distorted',subOn:true,subLevel:.6,filterCutoff:400,filterRes:4,filtA:.001,filtD:.15,filtS:.1,filterEnvAmt:3000,ampA:.002,ampD:.15,ampS:.5,ampR:.08,distOn:true,distAmount:.3,playMode:'mono',arpOn:true,arpRate:8});
+P('⚡ Industrial','Rivet Gun',{osc1Wave:'noise_tone',filterCutoff:3000,filterRes:4,ampA:.001,ampD:.05,ampS:0,ampR:.02,pitchEnvAmt:12,pitchD:.03,distOn:true,distAmount:.5,arpOn:true,arpRate:32});
+P('⚡ Industrial','Servo Motor',{osc1Wave:'hardsync',filterCutoff:2500,filterRes:3,ampA:.002,ampD:.1,ampS:.3,ampR:.05,lfo1Wave:'sawtooth',lfo1Rate:8,lfo1Depth:.4,lfo1Dest:'pitch',distOn:true,distAmount:.2,arpOn:true,arpRate:16});
+P('⚡ Industrial','Steam Vent',{noiseOn:true,noiseLevel:.7,osc1Wave:'tube',osc1Level:.2,filterCutoff:3000,filterRes:5,filtA:.001,filtD:.3,filtS:.05,filterEnvAmt:5000,ampA:.002,ampD:.3,ampS:0,ampR:.1,arpOn:true,arpRate:4});
+P('⚡ Industrial','Circuit Bend',{osc1Wave:'bitcrush',osc2On:true,osc2Wave:'digital',osc2Fine:50,osc2Level:.5,filterCutoff:4000,filterRes:3,ampA:.001,ampD:.1,ampS:.5,ampR:.05,distOn:true,distAmount:.4,arpOn:true,arpRate:16,arpOctaves:2});
+P('⚡ Industrial','Power Grid',{osc1Wave:'square',osc2On:true,osc2Wave:'sawtooth',osc2Fine:1,osc2Level:.5,filterCutoff:500,filterRes:8,filtA:.001,filtD:.3,filtS:.3,filterEnvAmt:4000,ampA:.003,ampS:.7,ampR:.1,distOn:true,distAmount:.3,arpOn:true,arpRate:8});
+P('⚡ Industrial','Hydraulic Press',{osc1Wave:'distorted',subOn:true,subLevel:.7,subOct:-2,filterCutoff:300,filterRes:4,filtA:.001,filtD:.5,filtS:.2,filterEnvAmt:2000,ampA:.01,ampD:.5,ampS:.3,ampR:.2,distOn:true,distType:'fuzz',distAmount:.4,arpOn:true,arpRate:4});
+P('⚡ Industrial','Data Stream',{osc1Wave:'digital',osc2On:true,osc2Wave:'bitcrush',osc2Fine:7,osc2Level:.4,filterCutoff:5000,filterRes:2,ampA:.001,ampD:.08,ampS:.4,ampR:.03,arpOn:true,arpRate:32,arpMode:'random',arpOctaves:3});
+P('⚡ Industrial','Neon Stab',{osc1Wave:'hardsync',osc1Unison:3,osc1Detune:15,filterCutoff:1000,filterRes:5,filtA:.001,filtD:.2,filtS:.05,filterEnvAmt:6000,ampA:.001,ampD:.15,ampS:0,ampR:.1,reverbOn:true,reverbMix:.15,arpOn:true,arpRate:16});
+P('⚡ Industrial','Cyber Acid',{osc1Wave:'acidwt',filterCutoff:300,filterRes:12,filtA:.001,filtD:.2,filtS:.05,filterEnvAmt:6000,ampA:.002,ampD:.2,ampS:.5,ampR:.08,distOn:true,distAmount:.3,playMode:'mono',arpOn:true,arpRate:16});
+P('⚡ Industrial','Drone Swarm',{osc1Wave:'ringwt',osc1Unison:6,osc1Detune:40,osc1Drift:.5,filterCutoff:3000,filterRes:3,ampA:.1,ampS:.6,ampR:.5,lfo1Wave:'sine',lfo1Rate:6,lfo1Depth:.3,lfo1Dest:'pitch',distOn:true,distAmount:.2,arpOn:true,arpRate:8});
+P('⚡ Industrial','EMP Pulse',{osc1Wave:'noise_tone',osc2On:true,osc2Wave:'digital',osc2Level:.4,filterCutoff:5000,filterRes:4,filtA:.001,filtD:.05,filtS:0,filterEnvAmt:3000,ampA:.001,ampD:.06,ampS:0,ampR:.03,reverbOn:true,reverbMix:.2,arpOn:true,arpRate:16,arpMode:'random'});
+P('⚡ Industrial','Mech Walker',{osc1Wave:'distorted',subOn:true,subLevel:.5,filterCutoff:800,filterRes:3,filtA:.001,filtD:.2,filtS:.15,filterEnvAmt:3000,ampA:.002,ampD:.2,ampS:.1,ampR:.15,distOn:true,distAmount:.25,arpOn:true,arpRate:4,arpOctaves:1});
+P('⚡ Industrial','Blade Runner',{osc1Wave:'supersaw',osc1Unison:5,osc1Detune:20,filterCutoff:1500,filterRes:3,filtA:.01,filtD:.5,filtS:.4,filterEnvAmt:3000,ampA:.01,ampD:.3,ampS:.7,ampR:.3,chorusOn:true,chorusMix:.2,reverbOn:true,reverbMix:.25,reverbDecay:3});
+P('⚡ Industrial','Grid Lock',{osc1Wave:'square',filterCutoff:2000,filterRes:6,filtA:.001,filtD:.1,filtS:.1,filterEnvAmt:5000,ampA:.001,ampD:.1,ampS:0,ampR:.03,arpOn:true,arpRate:32,arpOctaves:2,arpMode:'random'});
+P('⚡ Industrial','Techno Kick',{osc1Wave:'sine',subOn:true,subLevel:.8,subOct:-1,filterCutoff:500,filtA:.001,filtD:.2,filtS:0,filterEnvAmt:4000,ampA:.001,ampD:.25,ampS:0,ampR:.1,pitchEnvAmt:24,pitchD:.05,distOn:true,distAmount:.2});
+P('⚡ Industrial','Cyberpunk Lead',{osc1Wave:'hardsync',osc1Unison:3,osc1Detune:12,filterCutoff:1500,filterRes:4,filtA:.005,filtD:.3,filtS:.3,filterEnvAmt:4000,ampA:.005,ampS:.8,ampR:.15,distOn:true,distAmount:.2,playMode:'mono',portamento:.03,delayOn:true,delayTime:.375,delayMix:.2});
+P('⚡ Industrial','Neural Link',{osc1Wave:'digital',osc2On:true,osc2Wave:'ringwt',osc2Fine:50,osc2Level:.3,filterCutoff:3000,filterRes:4,ampA:.002,ampD:.15,ampS:.3,ampR:.1,phaserOn:true,phaserRate:2,phaserMix:.3,arpOn:true,arpRate:16,arpOctaves:2,arpMode:'random'});
+P('⚡ Industrial','Reactor Core',{osc1Wave:'distorted',osc1Unison:4,osc1Detune:25,subOn:true,subLevel:.5,filterCutoff:600,filterRes:6,ampA:.5,ampS:.6,ampR:2,lfo1Wave:'sine',lfo1Rate:.1,lfo1Depth:.5,lfo1Dest:'filter',distOn:true,distAmount:.3,reverbOn:true,reverbMix:.3});
+P('⚡ Industrial','Assembly Line',{osc1Wave:'square',filterCutoff:1500,filterRes:4,filtA:.001,filtD:.1,filtS:.1,filterEnvAmt:3000,ampA:.001,ampD:.1,ampS:0,ampR:.03,arpOn:true,arpRate:16,delayOn:true,delayTime:.125,delayFeedback:.3,delayMix:.2});
+P('⚡ Industrial','Toxic Rain',{osc1Wave:'noise_tone',osc2On:true,osc2Wave:'digital',osc2Level:.3,filterCutoff:2000,filterRes:4,ampA:.01,ampD:.5,ampS:.2,ampR:1,lfo1Wave:'triangle',lfo1Rate:.3,lfo1Depth:.5,lfo1Dest:'filter',delayOn:true,delayTime:.5,delayFeedback:.4,delayMix:.3,reverbOn:true,reverbMix:.3});
+P('⚡ Industrial','Glitch Hop',{osc1Wave:'bitcrush',filterCutoff:3000,filterRes:3,ampA:.001,ampD:.08,ampS:.3,ampR:.03,distOn:true,distAmount:.2,arpOn:true,arpRate:16,arpMode:'random',arpOctaves:2,delayOn:true,delayTime:.188,delayFeedback:.25,delayMix:.2});
+P('⚡ Industrial','Neon Nights',{osc1Wave:'supersaw',osc1Unison:5,osc1Detune:25,osc2On:true,osc2Wave:'square',osc2Level:.3,filterCutoff:2000,filterRes:3,filtA:.01,filtD:.4,filtS:.3,filterEnvAmt:4000,ampA:.01,ampD:.2,ampS:.7,ampR:.3,chorusOn:true,chorusMix:.25,reverbOn:true,reverbMix:.2,delayOn:true,delayTime:.375,delayMix:.15});
+P('⚡ Industrial','Chrome Pluck',{osc1Wave:'hardsync',osc2On:true,osc2Wave:'digital',osc2Level:.3,filterCutoff:1000,filterRes:3,filtA:.001,filtD:.15,filtS:0,filterEnvAmt:6000,ampA:.001,ampD:.2,ampS:0,ampR:.15,reverbOn:true,reverbMix:.2,arpOn:true,arpRate:16,arpOctaves:2});
+P('⚡ Industrial','Overclocked',{osc1Wave:'digital',osc2On:true,osc2Wave:'bitcrush',osc2Fine:30,osc2Level:.5,filterCutoff:4000,filterRes:5,ampA:.001,ampS:.6,ampR:.05,distOn:true,distAmount:.4,lfo1Wave:'square',lfo1Rate:4,lfo1Depth:.5,lfo1Dest:'filter',arpOn:true,arpRate:8});
+P('⚡ Industrial','Dystopia Pad',{osc1Wave:'distorted',osc1Unison:5,osc1Detune:30,osc2On:true,osc2Wave:'noise_tone',osc2Level:.2,filterCutoff:1200,filterRes:3,ampA:1.5,ampS:.5,ampR:4,lfo1Wave:'sine',lfo1Rate:.08,lfo1Depth:.4,lfo1Dest:'filter',reverbOn:true,reverbMix:.45,reverbDecay:6});
+P('⚡ Industrial','Mainframe',{osc1Wave:'square',osc2On:true,osc2Wave:'digital',osc2Level:.4,osc2Fine:7,filterCutoff:3000,filterRes:2,ampA:.001,ampD:.1,ampS:.5,ampR:.05,arpOn:true,arpRate:32,arpMode:'updown',arpOctaves:3,delayOn:true,delayTime:.125,delayFeedback:.2,delayMix:.15});
+P('⚡ Industrial','Megacity Bass',{osc1Wave:'acidwt',osc1Unison:2,osc1Detune:8,subOn:true,subLevel:.7,filterCutoff:200,filterRes:8,filtA:.001,filtD:.25,filtS:.1,filterEnvAmt:5000,ampA:.002,ampD:.2,ampS:.6,ampR:.1,distOn:true,distType:'tape',distAmount:.3,playMode:'mono'});
+
+// --- FX ---
+P('✨ FX/SFX','Laser',{osc1Wave:'sawtooth',filterCutoff:5000,pitchEnvAmt:-48,pitchD:.3,ampA:.001,ampD:.3,ampS:0,ampR:.1});
+P('✨ FX/SFX','Explosion',{noiseOn:true,noiseLevel:.9,osc1Wave:'sine',osc1Level:.3,filterCutoff:500,filterRes:2,filtA:.001,filtD:.5,filtS:.05,filterEnvAmt:4000,ampA:.002,ampD:.8,ampS:0,ampR:.5,distOn:true,distAmount:.4});
+P('✨ FX/SFX','Sweep Up',{osc1Wave:'sawtooth',osc1Unison:3,osc1Detune:20,filterCutoff:200,filterRes:8,ampA:2,ampS:.8,ampR:1,lfo1Wave:'sawtooth',lfo1Rate:.15,lfo1Depth:.9,lfo1Dest:'filter'});
+P('✨ FX/SFX','Metallic Hit',{osc1Wave:'metallic',osc2On:true,osc2Wave:'glass',osc2Level:.5,osc2Fine:50,filterCutoff:8000,ampA:.001,ampD:.5,ampS:0,ampR:.5,reverbOn:true,reverbMix:.3});
+P('✨ FX/SFX','Wobble Bass',{osc1Wave:'sawtooth',filterCutoff:1500,filterRes:6,lfo1Wave:'square',lfo1Rate:6,lfo1Depth:.7,lfo1Dest:'filter',ampA:.01,ampS:1,distOn:true,distAmount:.3});
+
+// ============================================================
+// SIDEBAR
+// ============================================================
+function buildPresets() {
+  const sb = document.getElementById('presetSidebar');
+  sb.innerHTML = '';
+
+  Object.entries(PRESETS).forEach(([cat, presets]) => {
+    const sec = document.createElement('div');
+    const title = document.createElement('div'); title.className = 'cat-head';
+    const arrow = document.createElement('span'); arrow.className = 'arr'; arrow.textContent = '▼';
+    title.appendChild(document.createTextNode(cat + ' (' + presets.length + ') '));
+    title.appendChild(arrow);
+    const content = document.createElement('div'); content.className = 'cat-body';
+
+    title.addEventListener('click', () => {
+      content.classList.toggle('shut');
+      arrow.classList.toggle('shut');
+    });
+
+    presets.forEach(p => {
+      const btn = document.createElement('button'); btn.className = 'preset-btn'; btn.textContent = p.name;
+      btn.addEventListener('click', () => {
+        sb.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadPreset(p.data);
+      });
+      content.appendChild(btn);
+    });
+    sec.appendChild(title); sec.appendChild(content); sb.appendChild(sec);
+  });
+
+  // Info section
+  const info = document.createElement('div');
+  const it = document.createElement('div'); it.className = 'cat-head'; it.textContent = '⌨ KEYBOARD';
+  const ic = document.createElement('div'); ic.className = 'cat-body';
+  ic.innerHTML = '<div style="color:var(--text3);font-size:9px;line-height:1.5;padding:4px">A-L = White keys<br>W,E,T,Y,U,O,P = Black keys<br>Z-M = Lower octave<br><br>Connect any MIDI keyboard via USB.<br>Tested: M-Audio MK3, Akai, Arturia,<br>Native Instruments, Novation,<br>Roland, Korg, Yamaha<br><br>Drag knobs ↑↓ to adjust<br>Shift+drag = fine control<br>Double-click = reset to center</div>';
+  info.appendChild(it); info.appendChild(ic); sb.appendChild(info);
+}
+
+// ============================================================
+// LOAD PRESET
+// ============================================================
+function loadPreset(data) {
+  // Reset ALL state to safe defaults first
+  const defaults = {
+    masterTuning:440,
+    pianoMode:false, pianoModel:'steinway', pianoBrightness:0.5, pianoHammer:0.5, pianoResonance:0.3, pianoStereo:0.6,
+    osc1Wave:'sawtooth', osc1Tune:0, osc1Fine:0, osc1Phase:0, osc1Drift:0, osc1Unison:1, osc1Detune:15, osc1PW:0.5, osc1PWM:0, osc1Level:0.7,
+    osc2Wave:'square', osc2Tune:0, osc2Fine:0, osc2On:false, osc2Unison:1, osc2Detune:10, osc2Level:0.5,
+    subOn:false, subWave:'sine', subOct:-1, subLevel:0.3, noiseOn:false, noiseType:'white', noiseLevel:0.1,
+    syncOn:false, ringOn:false, fmAmount:0, fmRatio:1, amAmount:0, amRate:5,
+    filterOn:true, filterType:'lowpass', filterCutoff:5000, filterRes:1, filterSlope:2, filterDrive:0, filterKeyTrack:0, filterEnvAmt:2000,
+    volume:0.7, pan:0, velSens:0.7,
+    ampA:0.01, ampD:0.3, ampS:0.7, ampR:0.3,
+    filtA:0.01, filtD:0.4, filtS:0.3, filtR:0.5,
+    pitchEnvAmt:0, pitchA:0, pitchD:0.1,
+    lfo1Rate:4, lfo1Depth:0, lfo1Wave:'sine', lfo1Dest:'none', lfo1Fade:0, lfo1Retrigger:true,
+    lfo2Rate:0.5, lfo2Depth:0, lfo2Wave:'triangle', lfo2Dest:'none', lfo2Fade:0, lfo2Retrigger:true,
+    playMode:'poly', polyphony:16, portamento:0, pitchBendRange:2,
+    arpOn:false, arpRate:8, arpMode:'up', arpOctaves:1, arpGate:0.8,
+    distOn:false, distType:'soft', distAmount:0.3,
+    chorusOn:false, chorusRate:1.5, chorusDepth:0.003, chorusMix:0.3,
+    delayOn:false, delayTime:0.375, delayFeedback:0.35, delayMix:0.25,
+    reverbOn:false, reverbDecay:2, reverbMix:0.2,
+    phaserOn:false, phaserRate:0.5, phaserDepth:2000, phaserMix:0.3,
+    eqLow:0, eqMid:0, eqHigh:0,
+    bitcrushOn:false, bitcrushBits:8,
+  };
+  Object.assign(S, defaults, data);
+  // Rebuild UI to reflect new state
+  buildUI();
+  // Sync ALL FX node values to match new state
+  syncAllFX();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+buildPresets();
+buildUI();
+syncAllFX(); // Ensure FX match initial state
+initMIDI();
+
+// Resume audio context on first interaction
+document.addEventListener('pointerdown', () => { if (CTX.state === 'suspended') CTX.resume(); }, {once: true});
+document.addEventListener('keydown', () => { if (CTX.state === 'suspended') CTX.resume(); }, {once: true});
+</script>
+</body>
+</html>
