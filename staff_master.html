@@ -60,10 +60,14 @@ select{width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(90,80,
 .cb2{position:absolute;top:46px;left:50%;transform:translateX(-50%);padding:5px 20px;border-radius:999px;background:linear-gradient(135deg,rgba(93,166,72,.15),rgba(93,166,72,.08));border:1px solid rgba(93,166,72,.22);color:var(--ok);font-weight:800;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:5;white-space:nowrap}.cb2.s{opacity:1}
 .bn{position:absolute;top:50%;left:50%;pointer-events:none;z-index:15;font-size:100px;font-weight:800;font-family:'Playfair Display',serif;animation:bN .7s forwards;opacity:0}
 @media(max-width:1100px){.w{grid-template-columns:1fr;height:auto}.sb{order:2}.gs{height:70vh}}
+.w.nosb{grid-template-columns:1fr}.w.nosb .sb{display:none}
+.stb{position:fixed;top:16px;left:16px;z-index:30;width:32px;height:32px;border-radius:10px;border:1px solid rgba(90,80,60,.12);background:var(--pnl);box-shadow:0 4px 16px rgba(70,58,40,.08);cursor:pointer;display:grid;place-items:center;font-size:14px;font-family:'DM Sans';transition:all .15s}
+.stb:hover{background:#fff;transform:scale(1.05)}
 </style>
 </head>
 <body>
-<div class="w">
+<button class="stb" id="stb" title="Toggle sidebar">☰</button>
+<div class="w" id="wr">
 <aside class="sb">
 <div><h1>Staff Master</h1><div class="su">Master music notation — 4 game modes</div></div>
 <div><div class="sl">Mode</div><div class="r">
@@ -76,8 +80,11 @@ select{width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(90,80,
 <div><div class="sl">Clef</div><div class="r"><button class="cb a" data-clef="both">Both</button><button class="cb" data-clef="treble">Treble</button><button class="cb" data-clef="bass">Bass</button></div></div>
 <div id="ssW" style="display:none"><div class="sl">Scale</div><select id="ss"></select></div>
 <div id="tmW" style="display:none"><div class="sl">Time per Note</div><select id="tmS"><option value="0">Default (adaptive)</option><option value="-1">No Timer (unlimited)</option><option value="3">3 seconds</option><option value="5">5 seconds</option><option value="10">10 seconds</option><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="1800">30 minutes</option></select></div>
+<div id="shW" style="display:none"><div class="r"><button class="ob" id="shB">Sharps ♯: OFF</button></div></div>
+<div id="bpW" style="display:none"><div class="sl">BPM</div><select id="bpS"><option value="40">40 BPM</option><option value="60" selected>60 BPM</option><option value="80">80 BPM</option><option value="100">100 BPM</option><option value="120">120 BPM</option></select></div>
 <div id="piW" style="display:none"><div class="sl">Keyboard Size</div><select id="piS"><option value="25">25 keys — 2 octaves</option><option value="49">49 keys — 4 octaves</option><option value="61" selected>61 keys — 5 octaves</option><option value="76">76 keys — 6 octaves</option><option value="88">88 keys — 7¼ octaves</option></select>
-<div class="r" style="margin-top:4px"><button class="ob a" id="pkB">Piano: ON</button><button class="ob" id="poB">Octaves: OFF</button><button class="ob" id="pfB">♯/♭: OFF</button></div></div>
+<div class="r" style="margin-top:4px"><button class="ob a" id="pkB">Piano: ON</button><button class="ob" id="poB">Octaves: OFF</button><button class="ob" id="pfB">♯/♭: OFF</button></div>
+<div class="r" style="margin-top:4px"><button class="ob" id="pcB">Clean: OFF</button><label class="ob" style="display:flex;align-items:center;gap:3px;justify-content:center">Color <input type="color" id="piC" value="#5da648" style="width:20px;height:16px;border:none;padding:0;cursor:pointer;border-radius:3px"></label></div></div>
 <div class="r"><button class="ob" id="lB">Ledger: OFF</button><button class="ob" id="fB">Fingering: OFF</button><button class="ob" id="eB">Endless: OFF</button></div>
 <div class="st">
 <div class="sc"><span>Score</span><b id="sv">0</b></div>
@@ -123,8 +130,15 @@ const tmW=document.getElementById('tmW'),tmS=document.getElementById('tmS');
 const piW=document.getElementById('piW'),piS=document.getElementById('piS');
 let tmVal=0; // 0=default, -1=no timer, >0=seconds
 let piKeys=61; // keyboard size for display
-let piShow=true,piOct=false,piFlat=false; // show piano, octave numbers, enharmonic flats
+let piShow=true,piOct=false,piFlat=false,piClean=false; // piano display options
+let piColor='#5da648'; // piano key press color
+let sharpsOn=false; // include sharps/flats in Drop/Flash/Hold
+let bpm=60; // Hold mode BPM
 const pkBtn=document.getElementById('pkB'),poBtn=document.getElementById('poB'),pfBtn=document.getElementById('pfB');
+const pcBtn=document.getElementById('pcB'),piCIn=document.getElementById('piC');
+const shBtn=document.getElementById('shB'),shW=document.getElementById('shW');
+const bpW=document.getElementById('bpW'),bpS=document.getElementById('bpS');
+const stBtn=document.getElementById('stb'),wrEl=document.getElementById('wr');
 
 // Chromatic frequency: A4=440Hz, semitone ratio = 2^(1/12)
 // midiNum: C4=60, A4=69
@@ -220,8 +234,8 @@ sc:0,co:0,mx:0,li:7,th:0,tm:0,be:0,lv:1,ptl:12,
 spT:0,spI:1.4,fT:0,iL:0,lT:0,bY:690,
 aC:null,mG:null,cm:null,aP:0,sk:0,hi:false,sH:false,cT:0,
 lN:[],rW:{},mN:null,
-fn:null,fs:null,fo:4,ft:0,ftm:3.5,fa:false,fc:0,
-dn:null,ds:null,_do:4,dt:null,da:false,dh:false,dk:null,dht:0,dtg:0,dtol:.35,dc:0,dtl:0,
+fn:null,fs:null,fo:4,ft:0,ftm:3.5,fa:false,fc:0,facc:'',ffull:null,
+dn:null,ds:null,_do:4,dt:null,da:false,dh:false,dk:null,dht:0,dtg:0,dtol:.35,dc:0,dtl:0,dacc:'',dfull:null,
 si:0,sp:0,sa:false,scd:0,scl:'treble',sn:[],hK:new Set()};
 
 function ldB(){G.be=+(localStorage.getItem('sm8_'+G.m+'_'+clF)||0)}
@@ -229,7 +243,11 @@ function svB(){if(G.sc>G.be){G.be=G.sc;localStorage.setItem('sm8_'+G.m+'_'+clF,'
 function pN(n){return{l:n[0],a:n.length>1?n.substring(1):'',pc:PC[n]??0,d:n}}
 
 function adaptive(){const w={};NAT.forEach(n=>w[n]=1);for(const n in G.rW)w[n]=1+Math.min(G.rW[n]*.8,3);G.lN.slice(-2).forEach(n=>{if(w[n])w[n]*=.3});const t=Object.values(w).reduce((a,b)=>a+b,0);let r=Math.random()*t;for(const n of NAT){r-=w[n];if(r<=0)return n}return NAT[0]}
-function pick(){const cl=pCl(),p=pool(cl,ledOn),lt=adaptive(),ms=p.filter(x=>x.l===lt);const n=ms.length?ms[Math.floor(Math.random()*ms.length)]:p[Math.floor(Math.random()*p.length)];return{l:n.l,o:n.o,c:cl}}
+function pick(){const cl=pCl(),p=pool(cl,ledOn),lt=adaptive(),ms=p.filter(x=>x.l===lt);const n=ms.length?ms[Math.floor(Math.random()*ms.length)]:p[Math.floor(Math.random()*p.length)];
+  // Optionally add sharp/flat accidental
+  let acc='';
+  if(sharpsOn&&Math.random()<0.35){const sharps=['C#','D#','F#','G#','A#'];const sn=sharps[Math.floor(Math.random()*sharps.length)];return{l:sn[0],o:n.o,c:cl,acc:'#',full:sn}}
+  return{l:n.l,o:n.o,c:cl,acc:'',full:n.l}}
 
 // ═══ MIDI — Professional device selection ═══
 const MN=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -368,7 +386,7 @@ const st=`<div style="display:flex;justify-content:center;gap:16px;margin:14px 0
 </div>`;
 sO(G.sc>=G.be&&G.sc>0?'🏆 New Best!':'Game Over',`<p>Keep practicing! Press any note or Space to restart.</p>${st}`)}
 
-function dR(){G.st='ready';G.fa=false;G.da=false;G.dh=false;G.sa=false;document.querySelectorAll('.k.hd,.bk.hd').forEach(e=>e.classList.remove('hd'));po.classList.remove('s');const t={drop:'Drop Mode',flash:'Flash Mode',duration:'Hold Mode',scale:'Scale Trainer',piano:'Free Piano'};const d={drop:'<p>Falling cards — identify notes before the deadline!</p>',flash:'<p>A note appears — identify it before time runs out!</p>',duration:'<p>Hold the correct key for the exact duration at 60 BPM.</p>',scale:'<p>Play through scales note by note with fingering.</p>',piano:'<p>Free play! Use your keyboard or MIDI piano to make music. No score, no pressure — just enjoy!</p>'};sO(t[G.m],d[G.m]);ldB();uH();ssW.style.display=G.m==='scale'?'':'none';tmW.style.display=(G.m==='flash'||G.m==='duration')?'':'none';piW.style.display=G.m==='piano'?'':'none'}
+function dR(){G.st='ready';G.fa=false;G.da=false;G.dh=false;G.sa=false;document.querySelectorAll('.k.hd,.bk.hd').forEach(e=>e.classList.remove('hd'));po.classList.remove('s');const t={drop:'Drop Mode',flash:'Flash Mode',duration:'Hold Mode',scale:'Scale Trainer',piano:'Free Piano'};const d={drop:'<p>Falling cards — identify notes before the deadline!</p>',flash:'<p>A note appears — identify it before time runs out!</p>',duration:`<p>Hold the correct key for the exact rhythmic duration at ${bpm} BPM.</p>`,scale:'<p>Play through scales note by note with fingering.</p>',piano:'<p>Free play! Use your keyboard or MIDI piano. No score, no pressure!</p>'};sO(t[G.m],d[G.m]);ldB();uH();ssW.style.display=G.m==='scale'?'':'none';tmW.style.display=(G.m==='flash'||G.m==='duration')?'':'none';piW.style.display=G.m==='piano'?'':'none';shW.style.display=(G.m==='drop'||G.m==='flash'||G.m==='duration')?'':'none';bpW.style.display=G.m==='duration'?'':'none'}
 
 // ═══ SCALE MODE ═══
 function iSc(){const s=SCALES[G.si];G.sp=0;G.sa=true;G.scl=clF==='bass'?'bass':'treble';
@@ -379,17 +397,17 @@ function iSc(){const s=SCALES[G.si];G.sp=0;G.sa=true;G.scl=clF==='bass'?'bass':'
 function scP(inp){if(!G.sa||G.sp>=G.sn.length)return;const ex=G.sn[G.sp];if((PC[inp]??-1)===ex.pc){G.sp++;hit(ex.l,W/2,H/2);if(G.sp>=G.sn.length){G.sa=false;G.scd=1.2;mT(W/2,H*.3,'Scale Complete!','#4a8a3a',36);bN('🎵','#5da648');G.si=(G.si+1)%SCALES.length;ss.value=G.si}}else{mis(inp);mT(W/2,H/2-40,`Need: ${ex.d}`,'#c94d44',28)}}
 
 // ═══ DROP ═══
-function spC(){const n=pick();G.lN.push(n.l);if(G.lN.length>5)G.lN.shift();const s=S(),x=fX();G.cards.push({x,y:-s.h,w:s.w,h:s.h,sp:68+(G.lv-1)*11+Math.random()*14,sk:n.c,nn:n.l,oc:n.o,wb:Math.random()*Math.PI*2,pl:Math.random()*Math.PI*2})}
-function fBC(n){let b=null,bi=-1,hy=-Infinity;for(let i=0;i<G.cards.length;i++){if(G.cards[i].nn===n&&G.cards[i].y>hy){hy=G.cards[i].y;b=G.cards[i];bi=i}}return{c:b,i:bi}}
+function spC(){const n=pick();G.lN.push(n.l);if(G.lN.length>5)G.lN.shift();const s=S(),x=fX();G.cards.push({x,y:-s.h,w:s.w,h:s.h,sp:68+(G.lv-1)*11+Math.random()*14,sk:n.c,nn:n.l,oc:n.o,acc:n.acc||'',full:n.full,wb:Math.random()*Math.PI*2,pl:Math.random()*Math.PI*2})}
+function fBC(n){let b=null,bi=-1,hy=-Infinity;for(let i=0;i<G.cards.length;i++){if(G.cards[i].full===n&&G.cards[i].y>hy){hy=G.cards[i].y;b=G.cards[i];bi=i}}return{c:b,i:bi}}
 function drP(n){if(G.iL>0)return;const{c:cd,i}=fBC(n);if(cd){G.cards.splice(i,1);hit(n,cd.x+cd.w/2,cd.y+cd.h/2)}else{G.iL=.06;mis(n);mP(W-100,80,'#d4908a',8);mT(W-100,100,'-1','#c94d44',24)}}
 
 // ═══ FLASH ═══
-function spF(){const n=pick();G.fn=n.l;G.fs=n.c;G.fo=n.o;G.ftm=tmVal>0?tmVal:tmVal===-1?9999:Math.max(1.2,3.5-(G.lv-1)*.18);G.ft=G.ftm;G.fa=true}
-function flP(n){if(!G.fa)return;if(n===G.fn){G.fa=false;G.fc=.6;hit(n,W/2,H/2)}else{G.fa=false;G.fc=.6;mis(n);mT(W/2,H/2-40,`Was: ${G.fn}`,'#c94d44',28)}}
+function spF(){const n=pick();G.fn=n.l;G.fs=n.c;G.fo=n.o;G.facc=n.acc||'';G.ffull=n.full;G.ftm=tmVal>0?tmVal:tmVal===-1?9999:Math.max(1.2,3.5-(G.lv-1)*.18);G.ft=G.ftm;G.fa=true}
+function flP(n){if(!G.fa)return;if(n===G.ffull){G.fa=false;G.fc=.6;hit(n,W/2,H/2)}else{G.fa=false;G.fc=.6;mis(n);mT(W/2,H/2-40,`Was: ${G.ffull}`,'#c94d44',28)}}
 
 // ═══ DURATION ═══
-function spD(){const n=pick();G.dn=n.l;G.ds=n.c;G._do=n.o;const mx=Math.min(2+Math.floor((G.lv-1)/2),DUR.length-1);G.dt=DUR[Math.floor(Math.random()*(mx+1))];G.dtg=G.dt.t;G.dtol=Math.max(.15,G.dtg*.25);G.dtl=tmVal>0?tmVal:tmVal===-1?9999:Math.max(G.dtg+3,5);G.da=true;G.dh=false;G.dht=0}
-function duOn(n){if(!G.da||G.dh)return;if(n===G.dn){G.dh=true;G.dk=n;G.dht=0;const e=document.querySelector(`.k[data-note="${n}"]`);if(e)e.classList.add('hd')}else{G.da=false;G.dc=.7;mis(n);mT(W/2,H/2-40,`Was: ${G.dn}`,'#c94d44',28)}}
+function spD(){const n=pick();G.dn=n.l;G.ds=n.c;G._do=n.o;G.dacc=n.acc||'';G.dfull=n.full;const mx=Math.min(2+Math.floor((G.lv-1)/2),DUR.length-1);G.dt=DUR[Math.floor(Math.random()*(mx+1))];G.dtg=G.dt.b*(60/bpm);G.dtol=Math.max(.15,G.dtg*.25);G.dtl=tmVal>0?tmVal:tmVal===-1?9999:Math.max(G.dtg+3,5);G.da=true;G.dh=false;G.dht=0}
+function duOn(n){if(!G.da||G.dh)return;if(n===G.dfull){G.dh=true;G.dk=n;G.dht=0;const e=document.querySelector(`.k[data-note="${n}"],.bk[data-note="${n}"]`);if(e)e.classList.add('hd')}else{G.da=false;G.dc=.7;mis(n);mT(W/2,H/2-40,`Was: ${G.dfull}`,'#c94d44',28)}}
 function duOff(n){if(!G.dh||n!==G.dk)return;document.querySelectorAll(`.k[data-note="${n}"]`).forEach(e=>e.classList.remove('hd'));G.dh=false;const d=Math.abs(G.dht-G.dtg);
 if(d<=G.dtol){G.da=false;G.dc=.7;const q=d<G.dtol*.4?'Perfect!':d<G.dtol*.7?'Great!':'Good';hit(n,W/2,H/2);mT(W/2,H*.38,q,d<G.dtol*.4?'#4a8a3a':'#8b6d50',d<G.dtol*.4?34:26)}
 else if(G.dht<G.dtg-G.dtol){G.da=false;G.dc=.7;mis(n);mT(W/2,H*.38,'Too short!','#c94d44',26)}
@@ -402,7 +420,7 @@ function onOn(n){
   if(G.m==='piano'){G.hK.add(n);playNote(n,4);aK(n,'g');return}
   G.hK.add(n);
   if(G.m==='scale'){scP(n);return}
-  if(!NAT.includes(n))return;
+  if(!NAT.includes(n)&&!sharpsOn)return;
   if(G.m==='drop')drP(n);else if(G.m==='flash')flP(n);else if(G.m==='duration')duOn(n)}
 function onOff(n){G.hK.delete(n);document.querySelectorAll(`.k[data-note="${n}"],.bk[data-note="${n}"]`).forEach(e=>e.classList.remove('hd'));if(G.m==='duration')duOff(n)}
 
@@ -418,9 +436,9 @@ function upd(dt){
   if(G.st!=='playing')return;
   if(G.m==='drop'){G.spT+=dt;if(G.spT>=G.spI){G.spT=0;spC();if(G.lv>=5&&Math.random()<.14)spC()}
     for(let i=G.cards.length-1;i>=0;i--){const cd=G.cards[i];cd.y+=cd.sp*dt;cd.x+=Math.sin(cd.wb+cd.y*.009)*5*dt;cd.x=Math.max(12,Math.min(W-12-cd.w,cd.x));cd.pl+=dt*5;
-      if(cd.y+cd.h>G.bY){G.cards.splice(i,1);G.co=0;G.tm++;if(!endless)G.li--;G.sk=Math.min(10,G.sk+5);G.rW[cd.nn]=(G.rW[cd.nn]||0)+1;pMi();mP(cd.x+cd.w/2,G.bY-4,'#d4908a',10);mT(cd.x+cd.w/2,G.bY-24,'miss: '+cd.nn,'#c94d44',22);sF(cd.nn+' missed','b');if(G.li<=0&&!endless){gO();break}}}
-  }else if(G.m==='flash'){if(!G.fa){G.fc-=dt;if(G.fc<=0)spF()}else{G.ft-=dt;if(G.ft<=0){G.fa=false;G.fc=.6;G.co=0;G.tm++;if(!endless)G.li--;G.sk=6;pMi();sF('Time! Was: '+G.fn,'b');G.rW[G.fn]=(G.rW[G.fn]||0)+1;if(G.li<=0&&!endless)gO()}}
-  }else if(G.m==='duration'){if(!G.da&&!G.dh){G.dc-=dt;if(G.dc<=0)spD()}if(G.da&&G.dh){G.dht+=dt;if(G.dht>G.dtg+G.dtol){G.da=false;G.dh=false;G.dc=.7;document.querySelectorAll(`.k[data-note="${G.dk}"]`).forEach(e=>e.classList.remove('hd'));mis(G.dn);mT(W/2,H*.38,'Too long!','#c94d44',26)}}if(G.da&&!G.dh){G.dtl-=dt;if(G.dtl<=0){G.da=false;G.dc=.7;G.co=0;G.tm++;if(!endless)G.li--;G.sk=6;pMi();sF('Time! Was: '+G.dn,'b');G.rW[G.dn]=(G.rW[G.dn]||0)+1;if(G.li<=0&&!endless)gO()}}
+      if(cd.y+cd.h>G.bY){G.cards.splice(i,1);G.co=0;G.tm++;if(!endless)G.li--;G.sk=Math.min(10,G.sk+5);G.rW[cd.full]=(G.rW[cd.full]||0)+1;pMi();mP(cd.x+cd.w/2,G.bY-4,'#d4908a',10);mT(cd.x+cd.w/2,G.bY-24,'miss: '+cd.full,'#c94d44',22);sF(cd.full+' missed','b');if(G.li<=0&&!endless){gO();break}}}
+  }else if(G.m==='flash'){if(!G.fa){G.fc-=dt;if(G.fc<=0)spF()}else{G.ft-=dt;if(G.ft<=0){G.fa=false;G.fc=.6;G.co=0;G.tm++;if(!endless)G.li--;G.sk=6;pMi();sF('Time! Was: '+G.ffull,'b');G.rW[G.ffull]=(G.rW[G.ffull]||0)+1;if(G.li<=0&&!endless)gO()}}
+  }else if(G.m==='duration'){if(!G.da&&!G.dh){G.dc-=dt;if(G.dc<=0)spD()}if(G.da&&G.dh){G.dht+=dt;if(G.dht>G.dtg+G.dtol){G.da=false;G.dh=false;G.dc=.7;document.querySelectorAll(`.k[data-note="${G.dk}"],.bk[data-note="${G.dk}"]`).forEach(e=>e.classList.remove('hd'));mis(G.dfull);mT(W/2,H*.38,'Too long!','#c94d44',26)}}if(G.da&&!G.dh){G.dtl-=dt;if(G.dtl<=0){G.da=false;G.dc=.7;G.co=0;G.tm++;if(!endless)G.li--;G.sk=6;pMi();sF('Time! Was: '+G.dfull,'b');G.rW[G.dfull]=(G.rW[G.dfull]||0)+1;if(G.li<=0&&!endless)gO()}}
   }else if(G.m==='scale'){if(!G.sa){G.scd-=dt;if(G.scd<=0){iSc();G.sa=true}}}
   else if(G.m==='piano'){/* free play — no game logic */}
   uH();
@@ -491,23 +509,23 @@ function dCC(cl,lt,oc,o={}){const s=S(),sc=1.38,w=Math.round(s.w*sc),h=Math.roun
 function drawDrop(){c.save();c.strokeStyle='rgba(196,151,106,.4)';c.lineWidth=2.5;c.setLineDash([8,6]);c.beginPath();c.moveTo(42,G.bY);c.lineTo(W-42,G.bY);c.stroke();c.setLineDash([]);c.fillStyle='#a09580';c.font='600 12px "DM Sans"';c.textAlign='center';c.fillText('— Deadline —',W/2,G.bY+20);c.textAlign='left';c.restore();
   [...G.cards].sort((a,b)=>a.y-b.y).forEach(cd=>{const dn=cd.y+cd.h>G.bY-70,gw=.06+(Math.sin(cd.pl)+1)*.05;
     const cx2=cd.x+cd.w/2,cy2=cd.y+cd.h/2;const tg=c.createRadialGradient(cx2,cy2,10,cx2,cy2,cd.w*PI+20);tg.addColorStop(0,dn?'rgba(201,77,68,.12)':'rgba(196,151,106,.07)');tg.addColorStop(1,'rgba(196,151,106,0)');c.fillStyle=tg;c.beginPath();c.arc(cx2,cy2,cd.w*PI+20,0,Math.PI*2);c.fill();
-    dSC(cd.x,cd.y,cd.w,cd.h,cd.sk,cd.nn,cd.oc,S().sg,{dn,gw})})}
+    dSC(cd.x,cd.y,cd.w,cd.h,cd.sk,cd.nn,cd.oc,S().sg,{dn,gw,ac:cd.acc||undefined})})}
 
 function drawFlash(){if(!G.fa){c.fillStyle='#a09580';c.font='600 20px "DM Sans"';c.textAlign='center';c.fillText('Get ready…',W/2,H/2);c.textAlign='left';return}
-  const{w,h,y:cy}=dCC(G.fs,G.fn,G.fo,{hl:true});
+  const{w,h,y:cy}=dCC(G.fs,G.fn,G.fo,{hl:true,ac:G.facc||undefined});
   if(tmVal!==-1){const p=Math.max(0,G.ft/G.ftm),bw=w,bh=8,bx=W/2-bw/2,by=cy+h+16;
   c.fillStyle='rgba(90,80,60,.07)';rR(bx,by,bw,bh,4);c.fill();c.fillStyle=p>.3?'rgba(93,166,72,.5)':'rgba(201,77,68,.5)';rR(bx,by,bw*p,bh,4);c.fill();
   c.fillStyle=p>.3?'#5da648':'#c94d44';c.font='bold 16px "DM Sans"';c.textAlign='center';c.fillText(`${G.ft.toFixed(1)}s`,W/2,by+28);c.textAlign='left'}
   else{c.fillStyle='#8a7e70';c.font='600 13px "DM Sans"';c.textAlign='center';c.fillText('No timer — take your time!',W/2,cy+h+30);c.textAlign='left'}}
 
 function drawDur(){if(!G.da){c.fillStyle='#a09580';c.font='600 20px "DM Sans"';c.textAlign='center';c.fillText('Get ready…',W/2,H/2);c.textAlign='left';return}
-  const d=G.dt,cy=H*.42;const{w,h,y:cY}=dCC(G.ds,G.dn,G._do,{cy,hl:G.dh,fi:d.fi,sm:d.st,fl:d.fl});
-  c.textAlign='center';c.fillStyle='#3a3228';c.font='bold 20px "Playfair Display"';c.fillText(d.n,W/2,cY+h+28);c.fillStyle='#8a7e70';c.font='600 12px "DM Sans"';c.fillText(`${d.b} beat${d.b!==1?'s':''} = ${G.dtg.toFixed(d.t>=1?1:2)}s at 60 BPM`,W/2,cY+h+46);
+  const d=G.dt,cy=H*.42;const{w,h,y:cY}=dCC(G.ds,G.dn,G._do,{cy,hl:G.dh,fi:d.fi,sm:d.st,fl:d.fl,ac:G.dacc||undefined});
+  c.textAlign='center';c.fillStyle='#3a3228';c.font='bold 20px "Playfair Display"';c.fillText(d.n,W/2,cY+h+28);c.fillStyle='#8a7e70';c.font='600 12px "DM Sans"';c.fillText(`${d.b} beat${d.b!==1?'s':''} = ${G.dtg.toFixed(G.dtg>=1?1:2)}s at ${bpm} BPM`,W/2,cY+h+46);
   const bw=w,bh=12,bx=W/2-bw/2,by=cY+h+56;c.fillStyle='rgba(90,80,60,.06)';rR(bx,by,bw,bh,6);c.fill();
   const mb=G.dtg+G.dtol;c.fillStyle='rgba(93,166,72,.1)';c.fillRect(bx+Math.max(0,(G.dtg-G.dtol)/mb)*bw,by,bw-(Math.max(0,(G.dtg-G.dtol)/mb)*bw),bh);
   const tx=bx+(G.dtg/mb)*bw;c.strokeStyle='rgba(93,166,72,.5)';c.lineWidth=2;c.beginPath();c.moveTo(tx,by-3);c.lineTo(tx,by+bh+3);c.stroke();
   if(G.dh){const p=Math.min(1,G.dht/mb),iz=G.dht>=G.dtg-G.dtol&&G.dht<=G.dtg+G.dtol;c.fillStyle=iz?'rgba(93,166,72,.6)':'rgba(196,151,106,.5)';rR(bx,by,bw*p,bh,6);c.fill();c.fillStyle=iz?'#4a8a3a':'#8a7e70';c.font=`bold ${iz?16:13}px "DM Sans"`;c.fillText(iz?'⬆ Release!':'Hold…',W/2,by+32)}
-  else{c.fillStyle='#8a7e70';c.font='600 12px "DM Sans"';c.fillText(tmVal===-1?`Press ${G.dn} and hold — no time limit`:`Press ${G.dn} — ${G.dtl.toFixed(1)}s left`,W/2,by+32)}c.textAlign='left'}
+  else{c.fillStyle='#8a7e70';c.font='600 12px "DM Sans"';c.fillText(tmVal===-1?`Press ${G.dfull} and hold — no time limit`:`Press ${G.dfull} — ${G.dtl.toFixed(1)}s left`,W/2,by+32)}c.textAlign='left'}
 
 function drawScale(){if(!G.sa){c.fillStyle='#a09580';c.font='600 20px "DM Sans"';c.textAlign='center';c.fillText('Next scale…',W/2,H/2);c.textAlign='left';return}
   const sc=SCALES[G.si],ns=G.sn,s=S(),scl=1.05;
@@ -545,86 +563,55 @@ function drawFX(){for(const p of G.pts){c.globalAlpha=Math.max(0,p.life/p.ml);c.
   for(const r of G.rng){c.globalAlpha=Math.max(0,r.life/r.ml)*.5;c.strokeStyle=r.cl;c.lineWidth=2.5;c.beginPath();c.arc(r.x,r.y,r.r,0,Math.PI*2);c.stroke()}c.globalAlpha=1;
   for(const t of G.pop){c.globalAlpha=Math.max(0,t.life/t.ml);c.fillStyle=t.cl;c.font=`800 ${t.s}px "DM Sans"`;c.textAlign='center';c.fillText(t.t,t.x,t.y)}c.globalAlpha=1;c.textAlign='left'}
 
-function drawHud(){c.save();const rx=W-162;c.fillStyle='#8a7e70';c.font='700 15px "DM Sans"';c.fillText(`Score ${G.sc}`,rx,32);c.fillText(`Level ${G.lv}`,rx,52);c.font='18px "DM Sans"';c.fillStyle='#c94d44';let h='';for(let i=0;i<Math.min(G.li,10);i++)h+='♥ ';c.fillText(h.trim(),rx,74);if(G.co>=3){c.fillStyle='#4a8a3a';c.font='800 20px "DM Sans"';c.fillText(`×${G.co}`,rx,100)}if(G.mN){c.fillStyle='rgba(93,166,72,.6)';c.font='600 9px "DM Sans"';c.fillText('🎹 MIDI',rx,H-20)}const ml={drop:'Drop',flash:'Flash',duration:'Hold — 60 BPM',scale:'Scale',piano:'Free Piano'};c.fillStyle='rgba(196,151,106,.5)';c.font='700 11px "DM Sans"';c.fillText(ml[G.m]+' Mode',42,28);c.restore()}
+function drawHud(){if(G.m==='piano'&&piClean)return;c.save();const rx=W-162;c.fillStyle='#8a7e70';c.font='700 15px "DM Sans"';c.fillText(`Score ${G.sc}`,rx,32);c.fillText(`Level ${G.lv}`,rx,52);c.font='18px "DM Sans"';c.fillStyle='#c94d44';let h='';for(let i=0;i<Math.min(G.li,10);i++)h+='♥ ';c.fillText(h.trim(),rx,74);if(G.co>=3){c.fillStyle='#4a8a3a';c.font='800 20px "DM Sans"';c.fillText(`×${G.co}`,rx,100)}if(G.mN){c.fillStyle='rgba(93,166,72,.6)';c.font='600 9px "DM Sans"';c.fillText('🎹 MIDI',rx,H-20)}const ml={drop:'Drop',flash:'Flash',duration:`Hold — ${bpm} BPM`,scale:'Scale',piano:'Free Piano'};c.fillStyle='rgba(196,151,106,.5)';c.font='700 11px "DM Sans"';c.fillText(ml[G.m]+' Mode',42,28);c.restore()}
 
 function drawPiano(){
   c.save();c.textAlign='center';
-  c.fillStyle='#3a3228';c.font='bold 24px "Playfair Display"';c.fillText('Free Piano',W/2,H*.12);
-  c.fillStyle='#8a7e70';c.font='600 12px "DM Sans"';
-  c.fillText(`${piKeys} keys — Keyboard: C D E F G A B + 1(C♯) 2(D♯) 3(F♯) 4(G♯) 5(A♯)`,W/2,H*.12+20);
-  // Build set of active MIDI numbers from hK
+  // hex to rgba helper
+  const h2r=(h,a)=>{const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return`rgba(${r},${g},${b},${a})`};
+  if(!piClean){
+    c.fillStyle='#3a3228';c.font='bold 24px "Playfair Display"';c.fillText('Free Piano',W/2,H*.12);
+    c.fillStyle='#8a7e70';c.font='600 12px "DM Sans"';
+    c.fillText(`${piKeys} keys — Keyboard: C D E F G A B + 1(C♯) 2(D♯) 3(F♯) 4(G♯) 5(A♯)`,W/2,H*.12+20);
+  }
   const actMidi=new Set();
   const chrOrd=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
   const enhMap={'C#':'D♭','D#':'E♭','F#':'G♭','G#':'A♭','A#':'B♭'};
-  function fmtNote(n){
-    const base=n.replace(/\d/g,''),num=n.replace(/[^\d]/g,'');
-    let s=base.replace('#','♯');
-    if(piFlat&&enhMap[base])s+='/'+enhMap[base];
-    return piOct&&num?s+num:s;
-  }
-  for(const k of G.hK){
-    const m=k.match(/^([A-G]#?)(\d+)$/);
-    if(m){actMidi.add(note2midi(m[1],+m[2]))}
-    else if(SEM[k]!==undefined){actMidi.add(note2midi(k,4))} // keyboard = oct 4
-  }
-  // Show held note names
+  function fmtNote(n){const base=n.replace(/\d/g,''),num=n.replace(/[^\d]/g,'');let s=base.replace('#','♯');if(piFlat&&enhMap[base])s+='/'+enhMap[base];return piOct&&num?s+num:s}
+  for(const k of G.hK){const m=k.match(/^([A-G]#?)(\d+)$/);if(m)actMidi.add(note2midi(m[1],+m[2]));else if(SEM[k]!==undefined)actMidi.add(note2midi(k,4))}
   const held=[...G.hK];
+  const noteY=piClean?H*.14:H*.2;
   if(held.length>0){
     const sorted=held.sort((a,b)=>{const ia=chrOrd.indexOf(a.replace(/\d/g,''))||0,ib=chrOrd.indexOf(b.replace(/\d/g,''))||0;return ia-ib});
     const fs=Math.max(14,Math.min(36,Math.floor(700/(sorted.length+1))));
-    c.fillStyle='#4a8a3a';c.font=`bold ${fs}px "Playfair Display"`;
+    c.fillStyle=piColor;c.font=`bold ${fs}px "Playfair Display"`;
     const disp=sorted.map(n=>fmtNote(n));
     const rows=[];for(let i=0;i<disp.length;i+=8)rows.push(disp.slice(i,i+8));
-    const startY=H*.2;
-    rows.forEach((row,ri)=>{c.fillText(row.join('   '),W/2,startY+ri*(fs+6)+fs)});
-    c.fillStyle='#8a7e70';c.font='600 12px "DM Sans"';
-    c.fillText(`${held.length} note${held.length>1?'s':''} held`,W/2,startY+rows.length*(fs+6)+12);
-  }else{
-    c.fillStyle='rgba(196,151,106,.25)';c.font='300 16px "DM Sans"';
-    c.fillText('Press any key to play…',W/2,H*.24);
-  }
-  // Draw piano keyboard
+    rows.forEach((row,ri)=>{c.fillText(row.join('   '),W/2,noteY+ri*(fs+6)+fs)});
+    if(!piClean){c.fillStyle='#8a7e70';c.font='600 12px "DM Sans"';c.fillText(`${held.length} note${held.length>1?'s':''} held`,W/2,noteY+rows.length*(fs+6)+12)}
+  }else{c.fillStyle='rgba(196,151,106,.25)';c.font='300 16px "DM Sans"';c.fillText(piClean?'':'Press any key to play…',W/2,noteY+20)}
   if(piShow){
-    // Key ranges per size
     const ranges={25:[48,72],49:[36,84],61:[36,96],76:[28,103],88:[21,108]};
     const[lo,hi]=ranges[piKeys]||ranges[61];
     const isBlack=m=>[1,3,6,8,10].includes(m%12);
-    // Count white keys
     let wCount=0;for(let m=lo;m<=hi;m++)if(!isBlack(m))wCount++;
     const pad=30,totalW=W-pad*2;
     const wW=Math.min(totalW/wCount,28),wH=Math.min(120,H*.22);
     const bW=wW*.62,bH=wH*.62;
-    const kbX=W/2-(wCount*wW)/2,kbY=H*.58;
-    // Draw white keys
+    const kbX=W/2-(wCount*wW)/2,kbY=piClean?H*.42:H*.58;
     let wx=0;
-    for(let m=lo;m<=hi;m++){
-      if(isBlack(m))continue;
-      const x=kbX+wx*wW;
-      const act=actMidi.has(m);
-      c.fillStyle=act?'rgba(93,166,72,.35)':'#fff';
-      c.strokeStyle='rgba(90,80,60,.2)';c.lineWidth=1;
-      rR(x,kbY,wW-1,wH,3);c.fill();c.stroke();
-      // Note label
+    for(let m=lo;m<=hi;m++){if(isBlack(m))continue;const x=kbX+wx*wW;const act=actMidi.has(m);
+      c.fillStyle=act?h2r(piColor,.35):'#fff';c.strokeStyle='rgba(90,80,60,.2)';c.lineWidth=1;rR(x,kbY,wW-1,wH,3);c.fill();c.stroke();
       const nm=chrOrd[m%12],oct=Math.floor(m/12)-1;
-      if(piOct){c.fillStyle=act?'#3a7a2a':'#aaa';c.font='bold 8px "DM Sans"';c.fillText(nm+oct,x+wW/2-.5,kbY+wH-5)}
+      if(piOct){c.fillStyle=act?piColor:'#aaa';c.font='bold 8px "DM Sans"';c.fillText(nm+oct,x+wW/2-.5,kbY+wH-5)}
       else if(m%12===0){c.fillStyle='#bbb';c.font='bold 7px "DM Sans"';c.fillText('C'+oct,x+wW/2-.5,kbY+wH-5)}
-      wx++;
-    }
-    // Draw black keys on top
+      wx++}
     wx=0;
-    for(let m=lo;m<=hi;m++){
-      if(isBlack(m))continue;
-      const x=kbX+wx*wW;
-      // Check if next semitone is black and in range
-      if(m+1<=hi&&isBlack(m+1)){
-        const bx=x+wW-bW/2-0.5;
-        const act=actMidi.has(m+1);
-        c.fillStyle=act?'rgba(74,138,58,.7)':'#3a3228';
-        rR(bx,kbY,bW,bH,2);c.fill();
-        if(piOct){const bn=chrOrd[(m+1)%12],en=enhMap[bn];c.fillStyle=act?'#cfc':'rgba(255,255,255,.5)';c.font=`bold ${piFlat?5:6}px "DM Sans"`;c.fillText(piFlat?bn.replace('#','♯')+'/'+en:bn.replace('#','♯'),bx+bW/2,kbY+bH-4)}
-      }
-      wx++;
-    }
+    for(let m=lo;m<=hi;m++){if(isBlack(m))continue;const x=kbX+wx*wW;
+      if(m+1<=hi&&isBlack(m+1)){const bx=x+wW-bW/2-.5;const act=actMidi.has(m+1);
+        c.fillStyle=act?h2r(piColor,.7):'#3a3228';rR(bx,kbY,bW,bH,2);c.fill();
+        if(piOct){const bn=chrOrd[(m+1)%12],en=enhMap[bn];c.fillStyle=act?'#cfc':'rgba(255,255,255,.5)';c.font=`bold ${piFlat?5:6}px "DM Sans"`;c.fillText(piFlat?bn.replace('#','♯')+'/'+en:bn.replace('#','♯'),bx+bW/2,kbY+bH-4)}}
+      wx++}
   }
   c.textAlign='left';c.restore();
 }
@@ -659,6 +646,11 @@ piS.addEventListener('change',()=>{piKeys=+piS.value});
 pkBtn.addEventListener('click',()=>{piShow=!piShow;pkBtn.textContent=`Piano: ${piShow?'ON':'OFF'}`;pkBtn.classList.toggle('a',piShow)});
 poBtn.addEventListener('click',()=>{piOct=!piOct;poBtn.textContent=`Octaves: ${piOct?'ON':'OFF'}`;poBtn.classList.toggle('a',piOct)});
 pfBtn.addEventListener('click',()=>{piFlat=!piFlat;pfBtn.textContent=`♯/♭: ${piFlat?'ON':'OFF'}`;pfBtn.classList.toggle('a',piFlat)});
+pcBtn.addEventListener('click',()=>{piClean=!piClean;pcBtn.textContent=`Clean: ${piClean?'ON':'OFF'}`;pcBtn.classList.toggle('a',piClean)});
+piCIn.addEventListener('input',()=>{piColor=piCIn.value});
+shBtn.addEventListener('click',()=>{sharpsOn=!sharpsOn;shBtn.textContent=`Sharps ♯: ${sharpsOn?'ON':'OFF'}`;shBtn.classList.toggle('a',sharpsOn)});
+bpS.addEventListener('change',()=>{bpm=+bpS.value});
+stBtn.addEventListener('click',()=>{wrEl.classList.toggle('nosb');stBtn.textContent=wrEl.classList.contains('nosb')?'◀':'☰'});
 
 // ═══ Verify ═══
 (function(){const t1=nPos('C',4,'treble'),t2=nPos('E',4,'treble'),t3=nPos('F',5,'treble'),b1=nPos('G',2,'bass'),b2=nPos('A',3,'bass');
