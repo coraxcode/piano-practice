@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b10">
+  <meta name="description" content="Vesper — an offline, mobile-first music reading game with precise treble and bass notation.">
+  <!--
+  Engraving credit: Copyright 2022 The Noto Project Authors
+  (https://github.com/notofonts/music). Noto Music is licensed under
+  SIL Open Font License 1.1: https://openfontlicense.org/open-font-license-official-text/
+  Music glyph shapes in this app derive from that open source typeface.
+  Redistributors should retain this notice and the full OFL license when required.
+-->
+  <title>Vesper VI.1 — The Art of Sight-Reading</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="color-scheme" content="dark">
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #0b0b10;
+      --panel: #121219;
+      --panel-2: #18171c;
+      --gold: #e5c486;
+      --gold-soft: #ac8a55;
+      --gold-dark: #6b5639;
+      --cream: #f6efdf;
+      --muted: #9b9184;
+      --hairline: rgba(229,196,134,.19);
+      --success: #bbd5b0;
+      --error: #edaaa1;
+      --phi: 1.618;
+      --radius: 19px;
+    }
+    *, *::before, *::after {box-sizing:border-box}
+    html { min-height:100%; background:var(--ink); -webkit-text-size-adjust:100%; }
+    body {
+      margin:0; min-height:100vh; min-height:100dvh;
+      color:var(--cream); background:
+        radial-gradient(ellipse at 50% -18%, rgba(158,113,53,.17),transparent 48%),
+        radial-gradient(ellipse at 0% 83%, rgba(101,80,60,.09),transparent 38%),
+        radial-gradient(ellipse at 100% 70%, rgba(111,67,53,.07),transparent 40%),
+        #0b0b10;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      -webkit-tap-highlight-color:transparent;
+      overflow-x:hidden;
+    }
+    body::before {
+      content:""; position:fixed; inset:0; pointer-events:none; opacity:.27; z-index:0;
+      background-image: repeating-linear-gradient(90deg,transparent 0,transparent 119px,rgba(220,190,135,.018) 120px),
+        repeating-linear-gradient(0deg,transparent 0,transparent 119px,rgba(220,190,135,.014) 120px);
+    }
+    button {font:inherit; cursor:pointer; color:inherit; -webkit-appearance:none; appearance:none}
+    button:focus-visible, a:focus-visible {outline:2px solid #ffdc9c; outline-offset:4px}
+    button:disabled {cursor:default}
+    .app {
+      position:relative; z-index:1; width:min(100% - 28px, 705px); margin:0 auto;
+      padding: max(15px, env(safe-area-inset-top)) 0 max(21px, env(safe-area-inset-bottom));
+    }
+    .topbar {display:flex; align-items:center; justify-content:space-between; min-height:49px; gap:10px}
+    .identity {display:flex; align-items:center; min-width:0; gap:10px}
+    .emblem {width:37px;height:37px; border:1px solid rgba(229,196,134,.46); transform:rotate(45deg); display:grid; place-items:center; flex:0 0 auto; border-radius:3px; box-shadow:0 0 28px rgba(182,135,70,.09)}
+    .emblem span {transform:rotate(-45deg); color:var(--gold); font:25px/1 Georgia,serif; margin-top:-1px}
+    .brand-name {font:600 18px/.96 Georgia, "Times New Roman",serif; letter-spacing:.21em; white-space:nowrap}
+    .brand-sub {margin-top:6px; color:var(--gold-soft); text-transform:uppercase; letter-spacing:.23em; font-size:8px; font-weight:700; white-space:nowrap}
+    .top-actions {display:flex;gap:7px}
+    .icon-btn {display:grid;place-items:center; width:40px;height:40px;border:1px solid var(--hairline);border-radius:12px;background:rgba(255,255,255,.022);color:var(--gold);transition:.2s ease}
+    .icon-btn:active {transform:scale(.95)}
+    .icon-btn:hover {background:rgba(229,196,134,.09);border-color:rgba(229,196,134,.43)}
+    .icon-btn svg {width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
+    .intro {text-align:center; padding:21px 3px 18px}
+    .eyebrow {display:flex;justify-content:center;align-items:center;gap:9px; color:var(--gold-soft);font-size:9px;font-weight:700;letter-spacing:.26em;text-transform:uppercase}
+    .eyebrow::before,.eyebrow::after {content:"";width:25px;height:1px;background:linear-gradient(90deg,transparent,var(--gold-dark))}
+    .eyebrow::after {transform:rotate(180deg)}
+    h1 {font:400 clamp(30px, 7.5vw, 49px)/1.08 Georgia, "Times New Roman",serif;letter-spacing:-.035em;margin:8px 0 5px}
+    h1 em {color:var(--gold); font-weight:400}
+    .intro p {color:var(--muted);font-size:12px;line-height:1.35;margin:0;letter-spacing:.02em}
+    .stats {display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid var(--hairline);background:linear-gradient(135deg,rgba(232,198,141,.07),rgba(232,198,141,.015));border-radius:14px;overflow:hidden}
+    .stat {padding:11px 8px 9px;text-align:center;position:relative}
+    .stat + .stat::before {content:"";position:absolute;left:0;top:23%;height:54%;width:1px;background:var(--hairline)}
+    .stat .num {font:400 23px/1 Georgia,serif;color:var(--cream);font-variant-numeric:tabular-nums}
+    .stat .num.streak {color:var(--gold)}
+    .stat .lbl {margin-top:5px;color:var(--muted);font-size:9px;letter-spacing:.17em;text-transform:uppercase}
+    .progress-head {display:flex;align-items:center;justify-content:space-between;gap:12px;margin:17px 4px 8px}
+    .progress-label {font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--gold);font-weight:700}
+    .progress-rank {font-size:10px;color:var(--muted);max-width:50%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .progress-track {height:3px;background:#30291f;border-radius:20px;overflow:hidden;margin:0 4px 14px}
+    .progress-fill {height:100%;width:0;background:linear-gradient(90deg,#8a653d,#f1d59c);transition:width .35s ease;border-radius:20px}
+    .sheet {
+      position:relative;border:1px solid rgba(223,184,113,.35);border-radius:21px;
+      background:radial-gradient(ellipse at 50% -40%,rgba(192,135,56,.105),transparent 70%),linear-gradient(150deg,#18171d 0%,#101016 82%);
+      padding:18px 18px 10px;box-shadow:0 16px 45px rgba(0,0,0,.28),inset 0 0 0 4px rgba(0,0,0,.13);
+      isolation:isolate;
+    }
+    .sheet::before {content:"";position:absolute;inset:6px;z-index:-1;border:1px solid rgba(230,194,128,.12);border-radius:16px;pointer-events:none}
+    .sheet-heading {display:flex;align-items:center;justify-content:space-between;gap:10px;margin:1px 1px 4px}
+    .clef-caption {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .chapter {font-size:10px;letter-spacing:.17em;text-transform:uppercase;font-weight:750;color:var(--gold)}
+    .chapter-level {font-size:9px;letter-spacing:.07em;color:var(--muted)}
+    .labels-toggle {border:1px solid var(--hairline);display:flex;align-items:center;gap:6px;color:#cdb995;background:rgba(229,196,134,.025);border-radius:99px;min-height:35px;padding:0 11px;font-size:10px;white-space:nowrap}
+    .labels-toggle[aria-pressed="true"] {color:#181412;background:var(--gold);border-color:var(--gold)}
+    .labels-toggle .aa {font:bold 14px Georgia,serif}
+    .staff-stage {width:100%; display:flex; justify-content:center;align-items:center;position:relative;}
+    #staffSvg {display:block;width:100%;max-width:550px;height:auto;overflow:visible;touch-action:manipulation}
+    .staff-line {stroke:#9e8b70;stroke-width:1.05;opacity:.74}
+    .ledger-line {stroke:#c8b08a;stroke-width:1.45;stroke-linecap:round}
+    .note-stem {stroke:#ecd0a0;stroke-width:2.5;stroke-linecap:round}
+    .target-head {fill:#f6d999;stroke:#fff4d9;stroke-width:.6;filter:drop-shadow(0 0 5px rgba(228,175,85,.28))}
+    .staff-clef {stroke:#d8b679;fill:none;stroke-linecap:round;stroke-linejoin:round}
+    .guide-label {font:700 10px/1 Arial,sans-serif;fill:#bfa980;paint-order:stroke;stroke:#15151b;stroke-width:3;stroke-linejoin:round;letter-spacing:.01em}
+    .guide-label.active {fill:#fff0c6;font-weight:900}
+    .target-label {font:700 13px Arial,sans-serif;fill:#fff0c6;paint-order:stroke;stroke:#18171d;stroke-width:4;stroke-linejoin:round}
+    .accidental-symbol {font:30px "Noto Music","DejaVu Sans",Georgia,serif;fill:#ecd19d;}
+    .guide {display:none;text-align:center;border-top:1px solid var(--hairline);padding:10px 10px 4px; margin:0 5px 5px}
+    .guide.open {display:block}
+    .guide-note {font:400 17px Georgia,serif;color:var(--gold);margin:0 0 4px}
+    .guide-rule {font-size:10px;color:#b7a995;line-height:1.55;margin:0}
+    .guide-rule b {font-weight:750;color:#e5d4ba}
+    .feedback {text-align:center;min-height:28px;display:flex;justify-content:center;align-items:center;gap:6px;font-size:12px;color:var(--muted);padding:5px 8px 1px;transition:color .12s ease}
+    .feedback.good {color:var(--success)}
+    .feedback.bad {color:var(--error)}
+    .sheet.good-flash {animation:goodpulse .52s ease}
+    .sheet.bad-flash {animation:badpulse .46s ease}
+    @keyframes goodpulse {0%,100%{box-shadow:0 16px 45px rgba(0,0,0,.28)}35%{box-shadow:0 0 0 2px rgba(187,213,176,.28),0 0 44px rgba(168,221,147,.14)}}
+    @keyframes badpulse {0%,100%{box-shadow:0 16px 45px rgba(0,0,0,.28)}35%{box-shadow:0 0 0 2px rgba(237,170,161,.32),0 0 30px rgba(220,106,100,.11)}}
+    .answer-section {margin-top:15px}
+    .answer-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 2px 10px}
+    .answer-heading h2 {margin:0;color:var(--gold-soft);font-size:10px;font-weight:750;letter-spacing:.19em;text-transform:uppercase}
+    .keyboard-help {color:#aaa091;font-size:10px;letter-spacing:.02em}
+    .answers {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+    .answer {
+      position:relative;display:flex;align-items:center;justify-content:center;border:1px solid rgba(231,193,124,.26);border-radius:14px;
+      background:linear-gradient(160deg,rgba(211,180,124,.075),rgba(255,255,255,.012)),#18171b;
+      min-height:76px;padding:10px 3px 9px;color:#f3e7d4;user-select:none;transition:border-color .16s,transform .12s,background .16s,box-shadow .16s;
+      font:400 clamp(26px,6vw,35px)/1 Georgia,serif;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.035);
+    }
+    .answer:hover:not(:disabled) {border-color:rgba(239,207,143,.8);background:#25211f;transform:translateY(-1px)}
+    .answer:active:not(:disabled) {transform:scale(.96)}
+    .answer .shortcut {position:absolute;top:7px;left:9px;font:700 9px Arial,sans-serif;color:#6f675b}
+    .answer.correct {color:#dff0d4;border-color:#93bb89;background:#203027;box-shadow:0 0 24px rgba(106,175,91,.12)}
+    .answer.incorrect {color:#ffd3cf;border-color:#d5807a;background:#362422}
+    .answer:disabled:not(.correct):not(.incorrect) {opacity:.49}
+    .answers.notes-only .answer:nth-child(5) {grid-column:1}
+    .bottom-hint {text-align:center;color:#aaa091;font-size:11px;line-height:1.45;padding:17px 4px 6px}
+    .bottom-hint strong {color:#a99a87;font-weight:600}
+    .footer {display:flex;justify-content:center;gap:10px;align-items:center;color:#756953;font:10px Georgia,serif;letter-spacing:.11em;margin:12px 0 0}
+    .footer span {width:27px;height:1px;background:linear-gradient(90deg,transparent,#574a35)}
+    .footer span:last-child {transform:rotate(180deg)}
+    .decor {position:absolute;top:11px;color:rgba(212,171,102,.55);font:18px Georgia,serif;pointer-events:none}
+    .decor.left {left:15px}.decor.right {right:15px}
+    dialog {border:0;padding:0;color:var(--cream);background:transparent;max-width:calc(100vw - 24px);max-height:calc(100dvh - 26px);overflow:visible}
+    dialog::backdrop {background:rgba(0,0,0,.75);backdrop-filter:blur(8px)}
+    .dialog-box {width:min(450px,calc(100vw - 26px));max-height:calc(100dvh - 26px);overflow-y:auto;overscroll-behavior:contain;background:linear-gradient(150deg,#211c1e,#111117 75%);border:1px solid rgba(225,185,115,.48);border-radius:22px;box-shadow:0 28px 90px rgba(0,0,0,.66);padding:24px 22px 23px;position:relative}
+    .dialog-top {display:flex;align-items:start;justify-content:space-between;gap:9px}
+    .dialog-kicker {font-size:10px;color:var(--gold-soft);letter-spacing:.2em;text-transform:uppercase;margin-bottom:7px}
+    .dialog-box h2 {font:400 31px/1.13 Georgia,serif;margin:0 0 9px;color:#f4e7d0}
+    .dialog-copy {color:#aa9f91;font-size:12px;line-height:1.6;margin:0 0 22px}
+    .close-btn {width:33px;height:33px;border:1px solid var(--hairline);border-radius:50%;background:rgba(255,255,255,.025);color:var(--gold);font-size:21px;line-height:1;flex:0 0 auto}
+    .field-label {text-transform:uppercase;color:var(--gold);font-size:10px;letter-spacing:.19em;font-weight:750;margin:19px 0 10px}
+    .pick-row {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+    .pick {min-height:49px;border:1px solid var(--hairline);border-radius:10px;background:#1b1a20;color:#c0b4a0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;font-size:12px;padding:7px 2px}
+    .pick span {font-size:9px;color:#7d7162}
+    .pick[aria-pressed="true"] {background:#3b3022;color:#f1d7a3;border-color:#c49b5e;box-shadow:inset 0 0 0 1px rgba(197,153,87,.15)}
+    .pick[aria-pressed="true"] span {color:#cbb18d}
+    .dialog-tip {margin:19px 0;color:#9f9382;line-height:1.55;font-size:11px;border-top:1px solid var(--hairline);padding-top:14px}
+    .primary-btn {width:100%;min-height:51px;border:1px solid #f2ce91;border-radius:12px;background:linear-gradient(135deg,#f0d49c,#c7a46b);color:#1a1511;font-size:12px;text-transform:uppercase;letter-spacing:.16em;font-weight:850;box-shadow:0 6px 27px rgba(204,150,72,.14);padding:10px}
+    .primary-btn:hover {filter:brightness(1.07)}
+    .secondary-btn {width:100%;min-height:43px;border:1px solid var(--hairline);background:transparent;color:var(--gold);border-radius:12px;font-size:12px;letter-spacing:.07em;margin-top:9px}
+    .results-medal {width:73px;height:73px;margin:0 auto 15px;display:grid;place-items:center;border:1px solid rgba(238,204,144,.65);border-radius:50%;background:radial-gradient(circle,#66503433,transparent 72%);color:var(--gold);font:38px Georgia,serif}
+    .results-content {text-align:center}
+    .results-score {font:400 46px/1 Georgia,serif;color:var(--gold)}
+    .results-score small {font-size:19px;color:#95856c}
+    .results-breakdown {display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:23px 0;border-block:1px solid var(--hairline);padding:16px 0}
+    .results-breakdown strong {font:400 23px Georgia,serif;color:#f4e5c8;display:block;margin-bottom:5px}
+    .results-breakdown span {text-transform:uppercase;letter-spacing:.1em;font-size:9px;color:var(--muted)}
+    .hidden {display:none!important}
+    @media (min-width:700px) {
+      .app {padding-top:25px}
+      .intro {padding:30px 5px 24px}
+      .sheet {padding:22px 26px 12px}
+      #staffSvg {max-width:510px}
+      .answer {min-height:78px}
+    }
+    @media (max-width:380px) {
+      .app {width:calc(100% - 18px)}
+      .brand-name {font-size:16px}
+      .brand-sub {font-size:7px}
+      .sheet {padding:14px 11px 8px}
+      .answers {gap:7px}
+      .answer {min-height:68px;border-radius:11px;font-size:27px}
+      .intro {padding:17px 2px 14px}
+      .intro p {font-size:11px}
+      .answer-heading h2 {font-size:9px}
+      .keyboard-help {display:none}
+      .progress-head {margin-top:14px}
+      .progress-track {margin-bottom:11px}
+      .bottom-hint {padding-top:11px}
+    }
+    @media (max-height:740px) and (max-width:600px) {
+      .intro {padding:11px 0 12px}
+      h1 {font-size:29px;margin:5px 0 3px}
+      .intro p {font-size:11px}
+      .stat {padding:8px 6px 7px}
+      .stat .num {font-size:20px}
+      .progress-head {margin-top:10px;margin-bottom:6px}
+      .progress-track {margin-bottom:10px}
+      .sheet {padding-top:11px}
+      .answer-section {margin-top:11px}
+      .answer {min-height:63px}
+      .bottom-hint {padding:9px 1px 3px;font-size:10px}
+      .footer {margin-top:5px}
+    }
+    /* Compact, one-hand play on short phones: answers stay near the score. */
+    @media (max-height:650px) and (max-width:400px) {
+      .topbar {min-height:40px}
+      .intro {padding:5px 0 9px}
+      .intro .eyebrow, .intro p, .bottom-hint, .footer {display:none}
+      h1 {font-size:27px;margin:0}
+      .stat {padding:7px 6px 6px}
+      .stat .num {font-size:19px}
+      .stat .lbl {margin-top:3px;font-size:8px}
+      .progress-head {margin-top:9px;margin-bottom:6px}
+      .progress-track {margin-bottom:8px}
+      .sheet {padding:9px 10px 3px}
+      .sheet-heading {margin-bottom:0}
+      #staffSvg {width:min(100%,260px)}
+      .feedback {min-height:21px;padding:0 5px}
+      .answer-section {margin-top:8px}
+      .answer-heading {margin-bottom:6px}
+      .answer {min-height:55px;padding:6px 3px}
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *,*::before,*::after {animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+    }
+
+    /* Vesper III · audited engraved edition. Gold outer architecture / ivory score paper. */
+    button {touch-action:manipulation}
+    .icon-btn {width:44px;height:44px}
+    .labels-toggle {min-height:44px}
+    .close-btn {width:44px;height:44px}
+    :root {
+      --gold:#e5c78e;--gold-soft:#c4a36e;--muted:#b0a598;
+      --hairline:rgba(231,200,145,.23);
+    }
+    body {background:
+      radial-gradient(ellipse 720px 400px at 50% -180px,rgba(153,108,54,.17),transparent 74%),
+      linear-gradient(125deg,rgba(207,171,109,.024),transparent 39%,rgba(146,101,53,.025) 90%),
+      #0b0a0d;}
+    .brand-name {letter-spacing:.26em}
+    .emblem {border-color:rgba(229,199,142,.52)}
+    .intro {padding-bottom:20px}
+    .intro h1 {text-shadow:0 2px 21px rgba(226,179,103,.07)}
+    .stats {background:linear-gradient(145deg,rgba(229,197,133,.075),rgba(18,16,19,.6))}
+    .stat .lbl {color:#ada090}
+    .progress-track {height:4px}
+    .sheet {background:
+      radial-gradient(ellipse at 50% 0%,rgba(214,171,97,.10),transparent 52%),
+      linear-gradient(160deg,#211b1d 0%,#121116 75%);
+      border-color:rgba(227,194,131,.49);
+      padding:18px 15px 12px;
+      box-shadow:0 20px 53px rgba(0,0,0,.36),inset 0 0 0 4px rgba(0,0,0,.14)}
+    .sheet::before {border-color:rgba(234,202,150,.13)}
+    .sheet-heading {padding:0 8px;margin:2px 1px 14px}
+    .chapter {color:#e9cd95;font-size:10px}
+    .chapter-level {color:#bdad94}
+    .staff-stage {
+      padding:3px 0;
+      border:1px solid #bba886;
+      border-radius:12px;
+      overflow:hidden;
+      background:radial-gradient(ellipse at 48% 36%,#fff9ea 0%,#f1e7d4 56%,#e3d5ba 100%);
+      box-shadow:inset 0 1px 1px #fffef2,
+        inset 0 0 0 4px rgba(115,88,58,.045),
+        0 8px 24px rgba(0,0,0,.25);
+    }
+    .staff-stage::before,.staff-stage::after {
+      content:'✦';position:absolute;z-index:1;top:9px;
+      font:13px Georgia,serif;color:rgba(114,87,53,.33);pointer-events:none;
+    }
+    .staff-stage::before {left:12px}
+    .staff-stage::after {right:12px}
+    #staffSvg {max-width:510px;overflow:hidden;}
+    .staff-line {stroke:#554d41;stroke-width:1.22;opacity:.9}
+    .staff-bar {stroke:#655b49;stroke-width:1.5;opacity:.72}
+    .ledger-line {stroke:#50473d;stroke-width:1.65}
+    .note-stem {stroke:#26221c;stroke-width:2.3;stroke-linecap:butt}
+    .target-head {fill:#24211c;stroke:none;filter:none}
+    .engraved-clef {fill:#342d25}
+    .accidental-path {fill:#342d25}
+    .guide-label {fill:#74634e;stroke:#f8efdf;stroke-width:2.5;font-size:10px;font-weight:800}
+    .guide-label.active {fill:#35291c;stroke:#f4ddb3;stroke-width:2.8}
+    .target-label {font:bold 13px Georgia,serif;fill:#5a3820;stroke:#f7eddd;stroke-width:4}
+    .feedback {min-height:33px;padding-top:11px;color:#d4c3a5;letter-spacing:.01em}
+    .answer-section {margin-top:17px}
+    .answer {background:linear-gradient(145deg,rgba(203,160,94,.095),rgba(211,179,135,.014)),#18151b;
+      border-color:rgba(231,195,129,.32);font-size:clamp(28px,6vw,36px);
+      box-shadow:inset 0 1px 0 rgba(244,219,173,.045),0 5px 18px rgba(0,0,0,.11)}
+    .answer:focus-visible {outline:2px solid #f3daaa;outline-offset:2px}
+    .answer .shortcut {color:#a49782}
+    .footer {color:#a18a62}
+    .dialog-box {border-color:rgba(229,195,135,.58)}
+    .pick[aria-pressed="true"] {background:#3b2e20}
+    @media (min-width:700px){.sheet {padding:22px 23px 14px}.sheet-heading{padding:0 8px}}
+    @media (max-width:380px){
+      .sheet {padding:12px 10px 9px}
+      .sheet-heading {padding:0 3px;margin-bottom:10px}
+      .chapter {font-size:9px}
+      .chapter-level {font-size:9px}
+      .labels-toggle {padding:0 8px;min-height:44px;font-size:9px}
+      .feedback {min-height:27px;padding-top:8px}
+    }
+    @media (max-height:650px) and (max-width:400px){
+      .sheet{padding:10px 9px 5px}
+      .sheet-heading{margin-bottom:5px}
+      #staffSvg{width:min(100%,285px)}
+      .feedback{padding-top:5px;min-height:22px}
+    }
+
+    /* Vesper IV: compact portrait and landscape layouts for touch-first use. */
+    @media (max-width:420px) and (max-height:610px) and (orientation:portrait) {
+      .intro {display:none}
+      .app {padding-top:max(8px,env(safe-area-inset-top));padding-bottom:max(6px,env(safe-area-inset-bottom))}
+      .topbar{min-height:45px}
+      .stats{margin-top:7px}
+      .sheet{padding-bottom:4px}
+      .sheet-heading{margin-bottom:3px}
+      #staffSvg{width:min(100%,258px)}
+      .feedback{padding-top:3px;min-height:21px}
+      .answer-section{margin-top:8px}
+      .answer-heading{margin-bottom:6px}
+      .answer{min-height:55px}
+    }
+    @media (min-width:480px) and (max-height:520px) and (orientation:landscape) {
+      .app {width:calc(100% - 26px);max-width:990px;display:grid;
+        grid-template-columns:minmax(0,1.618fr) minmax(0,1fr);column-gap:14px;row-gap:6px;
+        padding:7px 0 max(7px,env(safe-area-inset-bottom))}
+      .topbar,.stats,.app>section[aria-label="Session progress"]{grid-column:1/-1}
+      .intro,.bottom-hint,.footer{display:none}
+      .topbar{min-height:38px}
+      .emblem{width:31px;height:31px}
+      .stats .stat{padding:4px}
+      .stats .num{font-size:18px}
+      .stats .lbl{margin-top:2px;font-size:8px}
+      .progress-head{margin:2px 2px 3px}
+      .progress-track{margin:0 3px}
+      .sheet{grid-column:1;grid-row:4;padding:8px 10px 5px}
+      .sheet-heading{margin-bottom:3px}
+      .labels-toggle{min-height:38px}
+      .staff-stage{padding:0}
+      #staffSvg{width:min(100%,275px)}
+      .feedback{min-height:19px;padding:3px 4px 0;font-size:11px}
+      .answer-section{grid-column:2;grid-row:4;margin:0;align-self:start}
+      .answer-heading{margin:2px 0 7px}
+      .answers{gap:5px}
+      .answer{min-height:70px;padding:6px 1px;font-size:24px;border-radius:10px}
+    }
+    @media (max-width:340px) {
+      .brand-sub {letter-spacing:.12em}
+      .brand-name {letter-spacing:.16em}
+      .icon-btn {width:43px;height:43px}
+      .sheet-heading {gap:5px}
+      .clef-caption {gap:3px}
+      .labels-toggle {font-size:9px;padding-inline:6px}
+    }
+    @media (forced-colors:active){.answer:focus-visible,.labels-toggle:focus-visible{outline:3px solid Highlight}}
+
+    .license-disclosure{margin:0 0 16px;border-top:1px solid var(--hairline);padding:9px 0 1px;color:#b9aa93}
+    .license-disclosure summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:11px;letter-spacing:.02em;color:var(--gold-soft)}
+    .license-disclosure p{font-size:11px;line-height:1.55;color:var(--muted)}
+    .license-disclosure pre{font:10px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#c1b5a3;max-height:190px;overflow-y:auto;padding:9px;border:1px solid var(--hairline);border-radius:8px}
+
+    /* Vesper V — The Moment: unequivocal, calming, responsive answer reveal.
+       Score geometry uses an approximately 1:1.618 hierarchy; no external assets. */
+    .feedback-reveal {
+      position:absolute; inset:0; z-index:4; isolation:isolate;
+      display:grid; place-items:center; overflow:hidden; border-radius:11px;
+      opacity:0; visibility:hidden; pointer-events:none;
+      transform:scale(1.035);
+      transition:opacity .24s ease-out,transform .36s cubic-bezier(.16,1,.3,1),visibility 0s linear .36s;
+      background:linear-gradient(135deg,rgba(13,29,23,.965),rgba(18,24,21,.975));
+      color:#bcebc7;
+    }
+    .feedback-reveal.is-visible {
+      opacity:1;visibility:visible;transform:scale(1);
+      transition:opacity .22s ease-out,transform .36s cubic-bezier(.16,1,.3,1),visibility 0s;
+    }
+    .feedback-reveal.is-wrong {
+      background:linear-gradient(135deg,rgba(36,20,24,.97),rgba(26,19,22,.985));
+      color:#ffb8b4;
+    }
+    .feedback-reveal::before {
+      content:'';position:absolute;inset:7px;border:1px solid currentColor;
+      border-radius:7px;opacity:.23;pointer-events:none;
+    }
+    .feedback-reveal::after {
+      content:'';position:absolute;left:50%;top:50%;width:min(230px,60%);aspect-ratio:1;
+      transform:translate(-50%,-50%);
+      background:radial-gradient(circle,rgba(104,209,147,.16),transparent 70%);
+      pointer-events:none;z-index:-1;
+    }
+    .feedback-reveal.is-wrong::after {background:radial-gradient(circle,rgba(230,112,113,.13),transparent 70%)}
+    .feedback-reveal-inner {
+      width:100%;height:100%;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:clamp(3px,1vh,6px);
+      padding:7px 12px;text-align:center;
+    }
+    .feedback-mark {
+      width:clamp(31px,5.5vh,46px);height:clamp(31px,5.5vh,46px);
+      display:grid;place-items:center;border:1px solid currentColor;
+      border-radius:50%;position:relative;font:400 clamp(22px,4.5vh,30px)/1 Georgia,serif;
+      box-shadow:0 0 0 5px color-mix(in srgb,currentColor 9%,transparent),0 0 30px color-mix(in srgb,currentColor 10%,transparent);
+      flex:0 0 auto;
+    }
+    .feedback-title {
+      margin:0;font:400 clamp(25px,6.3vw,40px)/1.08 Georgia,serif;
+      letter-spacing:.115em;text-transform:uppercase;
+      text-shadow:0 0 25px color-mix(in srgb,currentColor 18%,transparent);
+    }
+    .feedback-reveal.is-wrong .feedback-title {font-size:clamp(23px,5.8vw,37px)}
+    .feedback-subtitle {
+      font:700 clamp(10px,1.5vw,12px)/1.25 Inter,Arial,sans-serif;
+      letter-spacing:.18em;text-transform:uppercase;color:#f4e5c4;
+    }
+    .feedback-note {
+      font:400 clamp(11px,2.5vw,14px)/1.2 Georgia,serif;
+      letter-spacing:.03em;color:#d4c3ac;
+    }
+    .feedback-ornament {height:1px;width:calc(26px * 1.618);background:currentColor;opacity:.48;margin:1px 0}
+    .feedback-reveal.is-visible .feedback-mark{animation:reveal-seal .44s cubic-bezier(.17,1.25,.36,1) both}
+    @keyframes reveal-seal{0%{transform:scale(.64);opacity:.1}70%{transform:scale(1.07);opacity:1}100%{transform:scale(1)}}
+    @media(max-width:360px), (max-height:650px) {
+      .feedback-reveal-inner{gap:3px;padding:5px 8px}
+      .feedback-mark{width:31px;height:31px;font-size:22px}
+      .feedback-title{font-size:27px}
+      .feedback-reveal.is-wrong .feedback-title{font-size:24px}
+      .feedback-subtitle{font-size:10px}
+      .feedback-note{font-size:11px}
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .feedback-reveal,.feedback-reveal.is-visible{transition:none;transform:none}
+      .feedback-reveal.is-visible .feedback-mark{animation:none}
+    }
+    @media (forced-colors:active) {
+      .feedback-reveal{background:Canvas;color:CanvasText;outline:2px solid CanvasText;outline-offset:-3px}
+      .feedback-reveal.is-wrong{background:Canvas;color:CanvasText}
+      .feedback-subtitle,.feedback-note{color:CanvasText}
+    }
+
+    /* Vesper V · mobile detail pass. Preserve tap targets and the printed-score look. */
+    @media (max-width:265px) {
+      .brand-sub {display:none}
+      .brand-name {font-size:14px;letter-spacing:.075em}
+      .identity {gap:5px}
+      .emblem {width:30px;height:30px}
+      .topbar {gap:4px}
+      .top-actions {gap:4px}
+      .icon-btn {width:44px;height:44px}
+    }
+    @media (max-width:420px) and (max-height:650px) and (orientation:portrait) {
+      /* Learning labels remain visible on the score without pushing answers off-screen. */
+      .guide.open {padding:4px 3px 1px;margin:0 3px}
+      .guide-note {font-size:13px;margin:0;line-height:1.25}
+      .guide-rule {display:none}
+    }
+    @media (min-width:480px) and (max-width:599px) and (max-height:520px) and (orientation:landscape) {
+      /* Narrow landscape phones need a three-column, thumb-friendly note pad. */
+      .app {width:calc(100% - 14px);grid-template-columns:minmax(0,1.30fr) minmax(0,1fr);column-gap:9px}
+      .topbar {gap:5px}
+      .brand-sub {display:none}
+      .sheet {padding:7px 7px 3px}
+      .sheet-heading {gap:3px;padding:0;margin:0 0 3px}
+      .clef-caption {gap:2px}
+      .chapter {font-size:9px;letter-spacing:.08em}
+      .chapter-level {font-size:8px}
+      .labels-toggle {font-size:8px;min-height:44px;padding-inline:6px}
+      #staffSvg {width:min(100%,235px)}
+      .answers {grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+      .answers.notes-only .answer:nth-child(5){grid-column:auto}
+      .answers.notes-only .answer:nth-child(7){grid-column:2}
+      .keyboard-help {display:none}
+      .answer {min-height:46px;font-size:22px;padding:4px 2px}
+      .answer-heading h2 {font-size:9px;letter-spacing:.10em}
+      .answer .shortcut {top:3px;left:5px;font-size:8px}
+    }
+    @media (min-width:480px) and (max-height:520px) and (orientation:landscape) {
+      .guide.open {padding:3px;margin:0}
+      .guide-note {font-size:11px;margin:0;line-height:1.2}
+      .guide-rule {display:none}
+    }
+    @media (prefers-contrast: more) {
+      .staff-line {stroke:#26211b;opacity:1}
+      .chapter-level,.bottom-hint,.keyboard-help,.stat .lbl {color:#ebdec9}
+      .answer {border-color:#dab778}
+    }
+
+    /* Vesper VI: score engraving + harmonious phi / Fibonacci spacing.
+       The golden ratio is a composition guide, not a reason to make tap targets too small. */
+    :root {--space-xs:5px;--space-sm:8px;--space-md:13px;--space-lg:21px;--space-xl:34px;--phi:1.61803398875;}
+    .sheet {border-radius:var(--space-lg);}
+    .sheet-heading {gap:var(--space-sm);}
+    .answers {gap:var(--space-sm);}
+    .staff-stage {border-radius:var(--space-md);box-shadow:inset 0 1px 1px #fffef2,inset 0 0 0 4px rgba(115,88,58,.045),0 8px 24px rgba(0,0,0,.25);}
+    #staffSvg {shape-rendering:geometricPrecision;}
+    .staff-line {stroke:#5c5449;stroke-width:1.12;opacity:.86;}
+    .staff-bar {stroke-width:1.2;}
+    .note-stem {stroke:#24201c;stroke-width:1.85;stroke-linecap:butt;}
+    .target-head {fill:#24201c;stroke:none;filter:none;}
+    .ledger-line {stroke:#494038;stroke-width:1.28;}
+    .answer {touch-action:manipulation;}
+    .answer:focus-visible {outline:2px solid #f7d9a0;outline-offset:3px;}
+    .feedback-reveal .feedback-mark {box-shadow:0 0 0 5px color-mix(in srgb,currentColor 8%,transparent),0 0 22px color-mix(in srgb,currentColor 8%,transparent);}
+    /* On very short landscape screens, keep the lesson and answer grid visible;
+       the live status remains available to screen readers. */
+    @media (min-width:480px) and (max-height:390px) and (orientation:landscape) {
+      .topbar {min-height:32px;}
+      .stats .stat {padding:2px 4px;}
+      .sheet {padding:5px 8px 4px;}
+      .sheet-heading {margin-bottom:2px;}
+      .sheet .feedback {position:absolute;width:1px;height:1px;padding:0;margin:0;
+        overflow:hidden;white-space:nowrap;clip-path:inset(50%);}
+      #staffSvg {width:min(100%,245px);}
+      .answer {min-height:58px;}
+      .progress-head {margin:1px 2px 2px;}
+    }
+    @media (prefers-contrast: more) {
+      .staff-line {stroke:#302923;opacity:1;}
+      .guide-label {fill:#352c21;}
+      .progress-track {height:5px;}
+    }
+    /* Vesper VI.1 audit: resilient statistics for longtime users / imported saves.
+       Keep the fixed-width scorecard and hide unintended overflow at 240–320 px. */
+    .stats {grid-template-columns:repeat(3,minmax(0,1fr))}
+    .stat {min-width:0;overflow:hidden}
+    .stat .num {white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .progress-label {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  </style>
+</head>
+<body>
+  <main class="app" aria-label="Vesper sight-reading game">
+    <header class="topbar">
+      <div class="identity" aria-label="Vesper">
+        <div class="emblem" aria-hidden="true"><span>✦</span></div>
+        <div><div class="brand-name">VESPER</div><div class="brand-sub">THE MUSIC ATELIER</div></div>
+      </div>
+      <div class="top-actions">
+        <button id="soundBtn" class="icon-btn" type="button" aria-label="Mute sound" title="Toggle sound">
+          <svg id="soundOnIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>
+          <svg id="soundOffIcon" class="hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m16 9 5 6m0-6-5 6"/></svg>
+        </button>
+        <button id="settingsBtn" class="icon-btn" type="button" aria-label="Open practice settings" title="Practice settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/><circle cx="8" cy="7" r="2" fill="#15151b"/><circle cx="16" cy="17" r="2" fill="#15151b"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="intro" aria-label="Game introduction">
+      <div class="eyebrow">A DAILY MUSICAL RITUAL</div>
+      <h1>Read the <em>music.</em></h1>
+      <p>A little practice. A beautiful new language.</p>
+    </section>
+
+    <section class="stats" aria-label="Practice statistics">
+      <div class="stat"><div class="num streak" id="streakNum">0</div><div class="lbl">Streak ✦</div></div>
+      <div class="stat"><div class="num" id="pointsNum">0</div><div class="lbl">Points</div></div>
+      <div class="stat"><div class="num" id="accuracyNum">—</div><div class="lbl">Accuracy</div></div>
+    </section>
+
+    <section aria-label="Session progress">
+      <div class="progress-head"><div class="progress-label" id="roundInfo">RECITAL 01 · 01 / 12</div><div class="progress-rank" id="levelInfo">LEVEL 1 · INITIATE</div></div>
+      <div class="progress-track" role="progressbar" aria-label="Recital progress" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0" id="progressTrack"><div class="progress-fill" id="progressFill"></div></div>
+    </section>
+
+    <section class="sheet" id="sheet" aria-labelledby="clefHeading">
+      <span class="decor left" aria-hidden="true">⌜</span><span class="decor right" aria-hidden="true">⌝</span>
+      <div class="sheet-heading">
+        <div class="clef-caption"><strong class="chapter" id="clefHeading">TREBLE CLEF</strong><span class="chapter-level" id="difficultyHeading">· Notes only</span></div>
+        <button id="labelsBtn" class="labels-toggle" type="button" aria-pressed="false" title="Show or hide the note names on the staff"><span class="aa" aria-hidden="true">Aa</span> <span id="labelsBtnText">Show labels</span></button>
+      </div>
+      <div class="staff-stage">
+        <svg id="staffSvg" viewBox="0 0 360 222.5" role="img" aria-label="Musical staff: identify the highlighted note" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="paperGlow" cx="50%" cy="38%" r="85%"><stop offset="0" stop-color="#fff9e9"/><stop offset="1" stop-color="#e9ddc7"/></radialGradient>
+          </defs>
+          <g aria-hidden="true">
+            <line class="staff-line" x1="32" y1="64" x2="316" y2="64"/>
+            <line class="staff-line" x1="32" y1="84" x2="316" y2="84"/>
+            <line class="staff-line" x1="32" y1="104" x2="316" y2="104"/>
+            <line class="staff-line" x1="32" y1="124" x2="316" y2="124"/>
+            <line class="staff-line" x1="32" y1="144" x2="316" y2="144"/>
+            <line class="staff-bar" x1="32" y1="64" x2="32" y2="144"/>
+          </g>
+          <!-- Engraved musical glyph outlines derived from Noto Music (SIL OFL 1.1, Google). -->
+          <!-- G clef spiral encircles the second line from the bottom (G4). -->
+          <g id="trebleClef" class="engraved-clef" aria-hidden="true">
+            <path d="M314 801Q300 854 291.0 906.0Q282 958 282 1012Q282 1059 288.5 1100.5Q295 1142 307 1177Q320 1217 341.0 1252.5Q362 1288 385.5 1311.0Q409 1334 427 1334Q451 1334 493 1249Q514 1206 524.0 1156.0Q534 1106 534 1049Q534 978 515.0 907.5Q496 837 459.5 775.0Q423 713 372 666L407 498Q422 500 432.0 501.0Q442 502 447 502Q508 502 556.0 467.5Q604 433 632.5 377.0Q661 321 661 254Q661 177 621.5 115.5Q582 54 503 25Q508 8 532 -117Q538 -147 541.0 -164.5Q544 -182 545.0 -195.0Q546 -208 546 -225Q546 -275 521.5 -314.5Q497 -354 455.5 -376.0Q414 -398 363 -398Q311 -398 271.0 -378.5Q231 -359 208.0 -324.5Q185 -290 185 -245Q185 -197 211.5 -165.0Q238 -133 287 -133Q329 -133 355.5 -163.5Q382 -194 382 -236Q382 -272 357.0 -299.0Q332 -326 292 -326H282Q308 -365 364 -365Q433 -365 472.0 -320.0Q511 -275 511 -205Q511 -188 507.0 -159.5Q503 -131 493 -91Q483 -51 477.5 -25.0Q472 1 470 12Q436 2 390 2Q304 2 222 52Q142 102 96.0 184.0Q50 266 50 361Q50 451 91 530Q132 609 192.5 675.0Q253 741 314 801ZM341 826Q364 838 390.0 870.5Q416 903 440.0 945.0Q464 987 479.0 1029.5Q494 1072 494 1106Q494 1142 483.0 1163.0Q472 1184 445 1184Q421 1184 398.5 1162.0Q376 1140 358.5 1103.5Q341 1067 331.0 1022.0Q321 977 321 930Q321 898 327.5 872.0Q334 846 341 826ZM398 379Q371 373 347.0 353.5Q323 334 308.5 306.5Q294 279 294 248Q294 223 307.0 196.5Q320 170 339 154Q352 142 365 136Q380 129 380 123Q380 120 370 117Q332 126 301.5 151.0Q271 176 253.5 211.5Q236 247 236 287Q236 330 253.5 370.0Q271 410 302.5 442.0Q334 474 374 490L345 641Q229 547 174.5 456.5Q120 366 120 277Q120 212 154.0 156.0Q188 100 247.0 65.5Q306 31 380 31Q400 31 420.5 35.0Q441 39 464 45ZM495 55Q593 97 593 227Q593 270 571.0 305.5Q549 341 512.0 362.0Q475 383 429 383Z" transform="translate(50 150) scale(.088 -.088)"/>
+          </g>
+          <!-- F clef dots straddle the second line from the top (F3). -->
+          <g id="bassClef" class="engraved-clef hidden" aria-hidden="true">
+            <path d="M50 123Q216 231 288 301Q336 348 373.0 408.5Q410 469 431.5 536.0Q453 603 453 669Q453 728 435.0 773.5Q417 819 383.0 845.0Q349 871 302 871Q284 871 264.5 867.0Q245 863 224 855Q181 839 158.0 813.5Q135 788 135 765Q135 756 143.0 752.0Q151 748 158 748Q168 748 183 752Q190 754 196.5 755.0Q203 756 210 756Q248 756 272.0 733.5Q296 711 296 674Q296 638 266.0 612.0Q236 586 195 586Q146 586 111.0 617.0Q76 648 76 697Q76 756 109.0 802.0Q142 848 198.5 874.0Q255 900 324 900Q400 900 460.0 867.0Q520 834 555.5 776.5Q591 719 591 646Q591 551 538 464Q511 419 476.5 379.0Q442 339 389.0 297.5Q336 256 256.0 208.0Q176 160 57 101ZM687 809Q710 809 726.0 793.0Q742 777 742 754Q742 731 726.0 715.5Q710 700 687 700Q664 700 648.0 715.5Q632 731 632 754Q632 777 648.0 793.0Q664 809 687 809ZM687 589Q710 589 726.0 573.0Q742 557 742 534Q742 511 726.0 495.5Q710 480 687 480Q664 480 648.0 495.5Q632 511 632 534Q632 557 648.0 573.0Q664 589 687 589Z" transform="translate(55 158) scale(.115 -.115)"/>
+          </g>
+          <g id="labelsLayer" aria-hidden="true"></g>
+          <g id="ledgerLayer" aria-hidden="true"></g>
+          <g id="noteLayer" aria-hidden="true"></g>
+        </svg>
+        <div class="feedback-reveal" id="feedbackReveal" aria-hidden="true">
+          <div class="feedback-reveal-inner">
+            <span class="feedback-mark" id="revealMark">✓</span>
+            <strong class="feedback-title" id="revealTitle">Correct</strong>
+            <span class="feedback-ornament" aria-hidden="true"></span>
+            <span class="feedback-subtitle" id="revealSubtitle">+12 POINTS</span>
+            <span class="feedback-note" id="revealNote">Beautifully read.</span>
+          </div>
+        </div>
+      </div>
+      <div class="guide" id="guide" aria-live="polite">
+        <div class="guide-note" id="guideTarget">This is C4</div>
+        <p class="guide-rule" id="guideRule"></p>
+      </div>
+      <div class="feedback" id="feedback" role="status" aria-live="polite" aria-atomic="true">Which note is written on the staff?</div>
+    </section>
+
+    <section class="answer-section" aria-label="Choose an answer">
+      <div class="answer-heading"><h2>CHOOSE THE WRITTEN NOTE</h2><span class="keyboard-help">Keyboard: 1–8</span></div>
+      <div class="answers notes-only" id="answers"></div>
+    </section>
+    <div class="bottom-hint" id="bottomHint">Tap <strong>Show labels</strong> to reveal the note names on the staff.</div>
+    <div class="footer" aria-hidden="true"><span></span> DISCIPLINE BECOMES ART <span></span></div>
+  </main>
+
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+    <div class="dialog-box">
+      <div class="dialog-top">
+        <div><div class="dialog-kicker">YOUR MUSICAL PATH</div><h2 id="settingsTitle">Practice settings</h2></div>
+        <button type="button" class="close-btn" data-close="settingsDialog" aria-label="Close settings">×</button>
+      </div>
+      <p class="dialog-copy">Choose your clef and the notes you'd like to master. Every recital contains 12 notes.</p>
+      <div class="field-label">01 / THE CLEF</div>
+      <div class="pick-row" id="clefChoices" role="group" aria-label="Musical clef">
+        <button class="pick" data-clef="treble" type="button" aria-pressed="true">Treble<span>G clef</span></button>
+        <button class="pick" data-clef="bass" type="button" aria-pressed="false">Bass<span>F clef</span></button>
+        <button class="pick" data-clef="both" type="button" aria-pressed="false">Both<span>Mixed</span></button>
+      </div>
+      <div class="field-label">02 / THE CHALLENGE</div>
+      <div class="pick-row" id="difficultyChoices" role="group" aria-label="Difficulty">
+        <button class="pick" data-difficulty="notes" type="button" aria-pressed="true">Foundations<span>7 note names</span></button>
+        <button class="pick" data-difficulty="accidentals" type="button" aria-pressed="false">Accidentals<span>♯ ♭ ♮</span></button>
+        <button class="pick" data-difficulty="mastery" type="button" aria-pressed="false">Virtuoso<span>Ledger lines</span></button>
+      </div>
+      <p class="dialog-tip">A <b>sharp (♯)</b> raises a note by one semitone; a <b>flat (♭)</b> lowers it by one semitone. A <b>natural (♮)</b> means the unaltered note. Read the written spelling, not just the sound. In this single-note drill, a natural sign can be shown as a courtesy reminder, even without an earlier accidental. In a full score, it often cancels a key-signature or earlier accidental.</p>
+      <details class="license-disclosure"><summary>Engraving credits &amp; license</summary><p>Musical glyph outlines are derived from Noto Music (© 2022 The Noto Project Authors), under the SIL Open Font License 1.1.</p><pre>Copyright 2022 The Noto Project Authors (https://github.com/notofonts/music)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+https://scripts.sil.org/OFL
+
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+&quot;Font Software&quot; refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+&quot;Reserved Font Name&quot; refers to any names specified as such after the
+copyright statement(s).
+
+&quot;Original Version&quot; refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+&quot;Modified Version&quot; refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+&quot;Author&quot; refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION &amp; CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.</pre></details>
+      <button id="applySettings" type="button" class="primary-btn">BEGIN A NEW RECITAL</button>
+    </div>
+  </dialog>
+
+  <dialog id="resultsDialog" aria-labelledby="resultsTitle">
+    <div class="dialog-box results-content">
+      <div class="results-medal" aria-hidden="true">✦</div>
+      <div class="dialog-kicker" id="resultsKicker">RECITAL COMPLETE</div>
+      <h2 id="resultsTitle">Beautifully played.</h2>
+      <p class="dialog-copy" id="resultsSubtitle">A little more practice makes every note familiar.</p>
+      <div class="results-score"><span id="resultsRight">0</span><small> / 12</small></div>
+      <div class="results-breakdown">
+        <div><strong id="resultsAccuracy">0%</strong><span>Accuracy</span></div>
+        <div><strong id="resultsPoints">0</strong><span>Points earned</span></div>
+        <div><strong id="resultsBest">0</strong><span>Best recital</span></div>
+      </div>
+      <button id="replayBtn" type="button" class="primary-btn">PLAY ANOTHER RECITAL ✦</button>
+      <button id="changeModeBtn" type="button" class="secondary-btn">Change practice settings</button>
+    </div>
+  </dialog>
+
+  <script>
+    'use strict';
+    (() => {
+      const $ = id => document.getElementById(id);
+      const NAMES = ['C','D','E','F','G','A','B'];
+      const SEMITONES = [0,2,4,5,7,9,11];
+      const GLYPH = {'': '', '#': '♯', 'b': '♭', 'n': '♮'};
+      const ACC_NAME = {'': '', '#': ' sharp', 'b': ' flat', 'n': ' natural'};
+      const SESSION_LENGTH = 12;
+      const compactNumber = new Intl.NumberFormat('en-US', {notation:'compact', maximumFractionDigits:1});
+      const displayCount = (n, threshold=10000) => n >= threshold ? compactNumber.format(n) : n.toLocaleString('en-US');
+      const STORE = 'vesper_sight_reader_v1';
+      const defaultSave = () => ({score:0, xp:0, bestStreak:0, bestRecital:0, attempts:0, correct:0, recitalNumber:1, sound:true, labels:false, clef:'treble', difficulty:'notes', weaknesses:{}, session:null});
+      function readSave() {
+        try {
+          const raw = JSON.parse(localStorage.getItem(STORE));
+          if (!raw || typeof raw !== 'object') return defaultSave();
+          const d = {...defaultSave(),...raw};
+          d.score = validInt(d.score); d.xp=validInt(d.xp);d.bestStreak=validInt(d.bestStreak);d.bestRecital=Math.min(12,validInt(d.bestRecital));d.attempts=validInt(d.attempts);d.correct=Math.min(d.attempts,validInt(d.correct));d.recitalNumber=Math.max(1,validInt(d.recitalNumber)||1);
+          d.sound = d.sound !== false;d.labels=!!d.labels;
+          if (!['treble','bass','both'].includes(d.clef)) d.clef='treble';
+          if (!['notes','accidentals','mastery'].includes(d.difficulty)) d.difficulty='notes';
+          // Imported/stale save data must never crash question selection or stall the UI.
+          const clean=Object.create(null);
+          if(d.weaknesses && typeof d.weaknesses==='object' && !Array.isArray(d.weaknesses)){
+            for(const [k,v] of Object.entries(d.weaknesses)) {
+              const match=/^(treble|bass)-(-?\d+)-(?:#|b|n)?$/.exec(k);
+              if(match && Number(match[2])>=-4 && Number(match[2])<=12)
+                clean[k]=Math.min(10,validInt(v));
+            }
+          }
+          d.weaknesses=clean;
+          return d;
+        } catch(e) {return defaultSave();}
+      }
+      function validInt(n) {return Number.isSafeInteger(n)&&n>=0 ? n:0;}
+      const save = readSave();
+      const state = {streak:0, runRight:0, runPoints:0, runAnswers:0, question:null, locked:false, hintUsed:save.labels, timeout:0, recent:[], pendingClef:save.clef, pendingDifficulty:save.difficulty,settingsReturnToResults:false,phase:'question',clefCounts:{treble:0,bass:0},feedbackRemaining:0,feedbackDeadline:0};
+      let audioCtx=null, outputGain=null;
+      // Vector glyphs extracted from open-source Noto Music (SIL OFL 1.1).
+      // Unlike Unicode clef/accidental text, these paths render identically offline on all platforms.
+      const ENGRAVING = {
+        notehead: 'M -13.7 3.9 C -13.0 -0.8 -5.4 -7.7 3.1 -8.8 C 10.7 -9.9 14.5 -6.0 13.8 -1.7 C 13.1 3.2 5.0 8.4 -3.3 9.0 C -11.3 9.6 -15.0 7.3 -13.7 3.9 Z',
+        '#': 'M502 82 404 39V-135H357V20L196 -58V-233H149V-77L51 -124V-46L149 0V245L51 198V276L149 323V482H196V342L357 420V590H404V439L502 485V408L404 361V116L502 160ZM357 97V342L196 264V19Z',
+        b: 'M51 524H88V179Q117 220 148.0 243.5Q179 267 209 267Q250 267 273.0 242.0Q296 217 296 173Q296 115 263 70Q241 40 208.0 19.0Q175 -2 138.5 -13.5Q102 -25 69 -25H51ZM88 141V3Q115 3 153 25Q192 47 215.5 83.0Q239 119 239 162Q239 191 230.5 206.5Q222 222 199 222Q171 222 140.5 198.0Q110 174 88 141Z',
+        n: 'M306 -213H259V-59L51 -156V404H98V264L306 361ZM259 19V261L98 186V-57Z'
+      };
+      const SVGNS='http://www.w3.org/2000/svg';
+      const svgNode=(tag,attrs={},content) => {
+        const n=document.createElementNS(SVGNS,tag);
+        for(const [k,v] of Object.entries(attrs)) n.setAttribute(k,String(v));
+        if(content!==undefined) n.textContent=content;
+        return n;
+      };
+      function storeSave() {
+        save.session={
+          runAnswers:state.runAnswers,runRight:state.runRight,runPoints:state.runPoints,
+          streak:state.streak,hintUsed:state.hintUsed,phase:state.phase,
+          question:state.question ? {clef:state.question.clef,step:state.question.step,acc:state.question.acc}:null,
+          recent:state.recent.slice(-4),clefCounts:{...state.clefCounts}
+        };
+        try {localStorage.setItem(STORE,JSON.stringify(save));}catch(e){ /* Private mode/storage disabled: still playable. */ }
+      }
+      function restoreSession() {
+        const q=save.session;
+        if(!q || typeof q!=='object' || Array.isArray(q)) return false;
+        if(!Number.isInteger(q.runAnswers)||q.runAnswers<0||q.runAnswers>SESSION_LENGTH ||
+           !Number.isInteger(q.runRight)||q.runRight<0||q.runRight>q.runAnswers ||
+           !Number.isSafeInteger(q.runPoints)||q.runPoints<0 ||
+           !Number.isInteger(q.streak)||q.streak<0||q.streak>SESSION_LENGTH ||
+           !['question','answered','results'].includes(q.phase)) return false;
+        const n=q.question;
+        if(!n || !['treble','bass'].includes(n.clef) || !Number.isInteger(n.step) ||
+           n.step < (save.difficulty==='notes'?0:save.difficulty==='accidentals'?-2:-4) ||
+           n.step > (save.difficulty==='notes'?8:save.difficulty==='accidentals'?10:12) ||
+           !['','#','b','n'].includes(n.acc) ||
+           (save.difficulty==='notes' && n.acc))return false;
+        if(save.clef!=='both' && save.clef!==n.clef)return false;
+        // Each session phase has one coherent number of recorded answers.
+        if((q.phase==='question' && q.runAnswers>=SESSION_LENGTH) ||
+           (q.phase==='answered' && q.runAnswers===0) ||
+           (q.phase==='results' && q.runAnswers!==SESSION_LENGTH) ||
+           q.streak>q.runRight ||
+           // At most 30 points, at least 6 points per correct response.
+           // This guards corrupted saves from breaking the results layout.
+           q.runPoints < 6*q.runRight || q.runPoints > 30*q.runRight) return false;
+        // Clef counts include the currently displayed question, which has already
+        // been sampled. Reject inconsistent data rather than corrupting recitals.
+        if(!q.clefCounts || typeof q.clefCounts!=='object')return false;
+        const t=q.clefCounts.treble,b=q.clefCounts.bass;
+        const counted=q.runAnswers+(q.phase==='question'?1:0);
+        if(!Number.isInteger(t)||!Number.isInteger(b)||t<0||b<0||t>SESSION_LENGTH||b>SESSION_LENGTH||t+b!==counted||
+           (save.clef==='treble'&&b!==0)||(save.clef==='bass'&&t!==0)||
+           (save.clef==='both'&&(t>SESSION_LENGTH/2||b>SESSION_LENGTH/2)))return false;
+        state.runAnswers=q.runAnswers;state.runRight=q.runRight;
+        state.runPoints=q.runPoints;state.streak=q.streak;
+        state.hintUsed=!!q.hintUsed||save.labels;
+        state.recent=Array.isArray(q.recent)?q.recent.filter(v=>typeof v==='string'&&v.length<25).slice(-4):[];
+        state.clefCounts={treble:0,bass:0};
+        if(q.clefCounts && typeof q.clefCounts==='object')for(const clef of ['treble','bass']){
+          const v=q.clefCounts[clef];state.clefCounts[clef]=Number.isInteger(v)&&v>=0&&v<=12?v:0;
+        }
+        state.question=noteFromStep(n.clef,n.step,n.acc);
+        state.phase=q.phase;state.locked=q.phase!=='question';
+        if(q.phase==='answered'){
+          // An interrupted feedback delay cannot grant points twice.
+          if(state.runAnswers>=SESSION_LENGTH){
+            // Restoring on the final feedback should still leave a complete
+            // engraved score beneath the results dialog, not an empty sheet.
+            drawStaff(state.question);displayChoices(state.question);
+            for(const b of $('answers').children)b.disabled=true;
+            finishRecital();
+          } else newQuestion();
+          return true;
+        }
+        drawStaff(state.question);displayChoices(state.question);refreshHud();
+        if(q.phase==='results'){
+          state.locked=true;
+          for(const b of $('answers').children)b.disabled=true;
+          presentResults();
+        } else {
+          $('feedback').className='feedback';$('feedback').textContent='Which note is written on the staff?';
+        }
+        return true;
+      }
+      function levelForXp(xp) {return 1+Math.floor(xp/240);}
+      function safeAdd(a,b){return Math.min(Number.MAX_SAFE_INTEGER,a+b);}
+      function levelName(level) {return ['INITIATE','APPRENTICE','ADEPT','VIRTUOSO','MAESTRO'][Math.min(level-1,4)];}
+      function spelled(note) {return note.letter + GLYPH[note.acc];}
+      function fullName(note) {return note.letter + ACC_NAME[note.acc] + ', octave ' + note.octave;}
+      function noteFromStep(clef,step,acc='') {
+        const idx=(clef==='treble'?4*7+2:2*7+4)+step;
+        const octave=Math.floor(idx/7);
+        const letterIdx=((idx%7)+7)%7;
+        return {clef,step,octave,letter:NAMES[letterIdx],acc};
+      }
+      function midiOf(note) {return 12*(note.octave+1)+SEMITONES[NAMES.indexOf(note.letter)]+(note.acc==='#'?1:note.acc==='b'?-1:0);}
+      function keyFor(note) {return note.clef+'-'+note.step+'-'+note.acc;}
+      function pick(arr) {return arr[Math.floor(Math.random()*arr.length)];}
+      function shuffle(a) {const out=[...a];for(let i=out.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[out[i],out[j]]=[out[j],out[i]];}return out;}
+      function chooseQuestion() {
+        let clef=save.clef;
+        if(clef==='both'){
+          const t=state.clefCounts.treble,b=state.clefCounts.bass;
+          // Exactly six G-clef and six F-clef questions in each 12-note mixed recital.
+          clef=t>=6?'bass':b>=6?'treble':Math.random()<.5?'treble':'bass';
+        }
+        state.clefCounts[clef]++;
+        const [lo,hi]=save.difficulty==='notes'?[0,8]:save.difficulty==='accidentals'?[-2,10]:[-4,12];
+        const candidates=[];
+        for(let step=lo;step<=hi;step++){
+          const accidents=save.difficulty==='notes'?['']:['','#','b','n'];
+          for(const acc of accidents){
+            const note=noteFromStep(clef,step,acc);
+            const id=keyFor(note);
+            const mistakes=Math.min(5,validInt(save.weaknesses[id]));
+            const repeats=state.recent.includes(id);
+            const weight=(1 + mistakes*1.35) * (repeats?.09:1) * (acc==='n'?.58:acc===''?1:1.1);
+            candidates.push({note,weight});
+          }
+        }
+        // Weighted sampling favors notes the player is still learning.
+        const total=candidates.reduce((s,c)=>s+c.weight,0);
+        let roll=Math.random()*total;
+        let candidate=candidates[candidates.length-1].note;
+        for(const c of candidates){roll-=c.weight;if(roll<=0){candidate=c.note;break;}}
+        state.recent.push(keyFor(candidate));if(state.recent.length>4)state.recent.shift();
+        return candidate;
+      }
+      function makeChoices(note) {
+        if(save.difficulty==='notes') return NAMES.map(letter=>({letter,acc:''}));
+        const choices=[{letter:note.letter,acc:note.acc}];
+        const used=new Set([spelled(note)]);
+        const add=(letter,acc) => {
+          const symbol=letter+GLYPH[acc];
+          if(!used.has(symbol)) {used.add(symbol);choices.push({letter,acc});}
+        };
+        // Distractors deliberately feature the same letter with different accidentals.
+        for(const acc of shuffle(['','#','b','n'])) if(acc!==note.acc && choices.length<4) add(note.letter,acc);
+        // Neighboring scale degrees, then a mix of written accidentals.
+        const idx=NAMES.indexOf(note.letter);
+        for(const delta of shuffle([-1,1,-2,2])) {
+          const letter=NAMES[(idx+delta+7)%7];
+          add(letter,note.acc);
+          if(choices.length>=7) break;
+        }
+        for(const letter of shuffle(NAMES)) for(const acc of shuffle(['','#','b','n'])) {
+          if(choices.length<8) add(letter,acc);
+        }
+        // Shuffle layout per question to ensure accidental recognition, not position.
+        return shuffle(choices.slice(0,8));
+      }
+      function refreshHud() {
+        $('streakNum').textContent=state.streak;
+        $('pointsNum').textContent=displayCount(save.score);
+        $('pointsNum').title=save.score.toLocaleString('en-US')+' total points';
+        $('pointsNum').setAttribute('aria-label',save.score.toLocaleString('en-US')+' total points');
+        $('accuracyNum').textContent=save.attempts?Math.round(100*save.correct/save.attempts)+'%':'—';
+        const shown=Math.min(SESSION_LENGTH,state.phase==='question'?state.runAnswers+1:Math.max(1,state.runAnswers));
+        const recitalLabel=save.recitalNumber<10000?String(save.recitalNumber).padStart(2,'0'):displayCount(save.recitalNumber);
+        $('roundInfo').textContent='RECITAL '+recitalLabel+' · '+String(shown).padStart(2,'0')+' / 12';
+        $('roundInfo').title='Recital '+save.recitalNumber.toLocaleString('en-US');
+        const level=levelForXp(save.xp);
+        $('levelInfo').textContent='LEVEL '+displayCount(level)+' · '+levelName(level);
+        $('levelInfo').title='Level '+level.toLocaleString('en-US')+' · '+levelName(level);
+        $('progressFill').style.width=(100*state.runAnswers/SESSION_LENGTH)+'%';
+        $('progressTrack').setAttribute('aria-valuenow',String(state.runAnswers));
+      }
+      function drawStaff(note) {
+        $('trebleClef').classList.toggle('hidden',note.clef!=='treble');
+        $('bassClef').classList.toggle('hidden',note.clef!=='bass');
+        $('clefHeading').textContent=note.clef==='treble'?'TREBLE CLEF':'BASS CLEF';
+        $('difficultyHeading').textContent='· '+({notes:'Notes only',accidentals:'Accidentals',mastery:'Virtuoso'}[save.difficulty]);
+        const ledgers=$('ledgerLayer'),notes=$('noteLayer'),labels=$('labelsLayer');
+        ledgers.replaceChildren();notes.replaceChildren();labels.replaceChildren();
+        // The note is placed at the staff's golden section: 175.5 : 108.5 ≈ 1.618.
+        const x=32+(316-32)/1.61803398875,y=144-note.step*10;
+        // Ledger lines run above or below the staff in two-step intervals.
+        if(note.step<0) for(let s=-2;s>=note.step;s-=2)ledgers.appendChild(svgNode('line',{class:'ledger-line',x1:x-21,x2:x+21,y1:144-s*10,y2:144-s*10}));
+        if(note.step>8) for(let s=10;s<=note.step;s+=2)ledgers.appendChild(svgNode('line',{class:'ledger-line',x1:x-21,x2:x+21,y1:144-s*10,y2:144-s*10}));
+        // Classical quarter-note engraving: 3.5-space stems (70 units),
+        // opposite-side attachment above/below the middle line, and a hand-cut
+        // diagonally inclined filled notehead; these dimensions share the 20-unit staff spacing.
+        const stemDown=note.step>4;
+        const stemX=x+(stemDown?-12.3:12.3);
+        const stemStartY=y+(stemDown?2:-2);
+        const stemEndY=y+(stemDown?70:-70);
+        notes.appendChild(svgNode('line',{class:'note-stem',x1:stemX,x2:stemX,y1:stemStartY,y2:stemEndY}));
+        notes.appendChild(svgNode('path',{class:'target-head',d:ENGRAVING.notehead,
+          transform:`translate(${x} ${y})`}));
+        if(note.acc) {
+          const m={ '#':{s:.053,cx:276.5,cy:178.5},b:{s:.065,cx:173.5,cy:249.5},n:{s:.060,cx:178.5,cy:95.5}}[note.acc];
+          const centerX=x-37;
+          notes.appendChild(svgNode('path',{class:'accidental-path',d:ENGRAVING[note.acc],
+            transform:`translate(${centerX-m.cx*m.s} ${y+m.cy*m.s}) scale(${m.s} ${-m.s})`}));
+        }
+        if(save.labels) {
+          for(let s=0;s<=8;s++){
+            const named=noteFromStep(note.clef,s);
+            labels.appendChild(svgNode('text',{class:'guide-label'+(s===note.step?' active':''),x:s%2===0?335:306,y:144-s*10+3,'text-anchor':'middle'},named.letter));
+          }
+          // Current note name appears at the head, even on ledger lines.
+          const shown=spelled(note)+note.octave;
+          labels.appendChild(svgNode('text',{class:'target-label',x:x+25,y:y-11},shown));
+        }
+        $('staffSvg').setAttribute('aria-label',(note.clef==='treble'?'Treble':'Bass')+' staff, a note to identify'+(save.labels?', labeled '+fullName(note):''));
+        $('guide').classList.toggle('open',save.labels);
+        $('guideTarget').textContent='✦  '+spelled(note)+note.octave+' — '+note.letter+ACC_NAME[note.acc];
+        const rules=note.clef==='treble'
+          ? '<b>Lines</b> (bottom to top): E · G · B · D · F &nbsp; / &nbsp; <b>Spaces:</b> F · A · C · E'
+          : '<b>Lines</b> (bottom to top): G · B · D · F · A &nbsp; / &nbsp; <b>Spaces:</b> A · C · E · G';
+        $('guideRule').innerHTML=rules;
+      }
+      function displayChoices(note) {
+        const choices=makeChoices(note),root=$('answers');
+        root.replaceChildren();root.classList.toggle('notes-only',save.difficulty==='notes');
+        for(let i=0;i<choices.length;i++) {
+          const choice=choices[i];
+          const b=document.createElement('button');
+          b.type='button';b.className='answer';b.dataset.spelling=spelled(choice);
+          b.setAttribute('aria-label',choice.letter+ACC_NAME[choice.acc]+', answer '+(i+1));
+          const key=document.createElement('span');key.className='shortcut';key.textContent=String(i+1);key.setAttribute('aria-hidden','true');
+          const symbol=document.createElement('span');symbol.textContent=spelled(choice);
+          b.append(key,symbol);
+          b.addEventListener('click',()=>answer(b));
+          root.appendChild(b);
+        }
+      }
+      function stopFeedbackTimer() {
+        window.clearTimeout(state.timeout);
+        state.timeout=0;state.feedbackRemaining=0;state.feedbackDeadline=0;
+      }
+      function advanceFeedback() {
+        state.timeout=0;
+        if(state.phase!=='answered')return;
+        // Background tabs may throttle timers. Resume when the user can see the answer.
+        if(document.hidden){state.feedbackRemaining=Math.max(400,state.feedbackDeadline-performance.now());return;}
+        state.feedbackRemaining=0;
+        clearReveal();
+        if(state.runAnswers>=SESSION_LENGTH)finishRecital();else newQuestion();
+      }
+      function scheduleFeedback(delay) {
+        window.clearTimeout(state.timeout);
+        state.feedbackRemaining=delay;
+        state.feedbackDeadline=performance.now()+delay;
+        if(!document.hidden)state.timeout=window.setTimeout(advanceFeedback,delay);
+        else state.timeout=0;
+      }
+      document.addEventListener('visibilitychange',()=>{
+        if(state.phase!=='answered')return;
+        if(document.hidden) {
+          if(state.timeout){
+            state.feedbackRemaining=Math.max(400,state.feedbackDeadline-performance.now());
+            window.clearTimeout(state.timeout);state.timeout=0;
+          }
+        } else if(!state.timeout) scheduleFeedback(state.feedbackRemaining||400);
+      });
+      function clearReveal() {
+        const reveal=$('feedbackReveal');
+        reveal.classList.remove('is-visible','is-wrong');
+        // All reveal contents stay accessibility-hidden; #feedback announces the outcome.
+      }
+      function showReveal(correct,earned) {
+        const reveal=$('feedbackReveal');
+        const note=state.question;
+        $('revealMark').textContent=correct?'✓':'×';
+        $('revealTitle').textContent=correct?'Correct':'Incorrect';
+        $('revealSubtitle').textContent=correct?'+'+earned+' POINTS':'THE CORRECT NOTE';
+        $('revealNote').textContent=correct
+          ? (state.streak>=3?'✦ '+state.streak+' IN A ROW ✦':'Beautifully read.')
+          : spelled(note)+note.octave+' · '+note.letter+ACC_NAME[note.acc];
+        // Replacing state before display keeps the reveal atomic even during fast taps.
+        reveal.classList.toggle('is-wrong',!correct);
+        reveal.classList.add('is-visible');
+      }
+      function newQuestion() {
+        clearReveal();
+        state.locked=false;state.phase='question';
+        state.hintUsed=save.labels;
+        state.question=chooseQuestion();
+        $('feedback').className='feedback';$('feedback').textContent='Which note is written on the staff?';
+        $('sheet').classList.remove('good-flash','bad-flash');
+        drawStaff(state.question);displayChoices(state.question);refreshHud();storeSave();
+      }
+      // Vesper VI sound engine: an audible, pitch-accurate felt-piano voice
+      // across G/F clefs, plus an independent consonant celebration motif.
+      // Harmonics 2–6 keep fundamentals below ~150 Hz intelligible on phone speakers
+      // without changing the written pitch, which remains harmonic 1.
+      function makeOutputBus(ctx) {
+        const gain=ctx.createGain(),limiter=ctx.createDynamicsCompressor();
+        limiter.threshold.setValueAtTime(-16,ctx.currentTime);
+        limiter.knee.setValueAtTime(10,ctx.currentTime);
+        limiter.ratio.setValueAtTime(3,ctx.currentTime);
+        limiter.attack.setValueAtTime(.006,ctx.currentTime);
+        limiter.release.setValueAtTime(.19,ctx.currentTime);
+        gain.gain.value=save.sound?.66:0;
+        gain.connect(limiter);limiter.connect(ctx.destination);
+        return gain;
+      }
+      function schedulePartial(ctx,bus,freq,start,peak,decay,attack=.012) {
+        if(freq>=ctx.sampleRate*.44||freq<=0||peak<=0)return;
+        const osc=ctx.createOscillator(),amp=ctx.createGain();
+        osc.type='sine';osc.frequency.setValueAtTime(freq,start);
+        amp.gain.setValueAtTime(.00001,start);
+        amp.gain.exponentialRampToValueAtTime(Math.max(.00002,peak),start+attack);
+        amp.gain.exponentialRampToValueAtTime(.00001,start+Math.max(decay,attack+.04));
+        osc.connect(amp);amp.connect(bus);
+        osc.onended=()=>{osc.disconnect();amp.disconnect();};
+        osc.start(start);osc.stop(start+decay+.026);
+      }
+      function playFeltPiano(ctx,bus,freq,when,velocity=.92) {
+        // Low-register fundamentals are retained; upper harmonics supply
+        // a psychoacoustic missing-fundamental cue on limited phone speakers.
+        const low=Math.max(0,Math.min(1,(275-freq)/185));
+        const clean=[.228,.094,.052,.025,.015,.010];
+        const bass=[.194,.150,.113,.077,.054,.036];
+        const lives=[.82,.66,.49,.39,.32,.27];
+        for(let i=0;i<clean.length;i++) {
+          const amplitude=(clean[i]*(1-low)+bass[i]*low)*velocity;
+          schedulePartial(ctx,bus,freq*(i+1),when,amplitude,lives[i],i===0?.010:.006);
+        }
+      }
+      function playCrystal(ctx,bus,freq,when,intensity=1) {
+        // A warm, brief harp/bell note, deliberately softer than the lesson tone.
+        const gains=[.080,.028,.011];
+        const lives=[.43,.30,.20];
+        gains.forEach((g,i)=>schedulePartial(ctx,bus,freq*(i+1),when,g*intensity,lives[i],.009));
+      }
+      function playReward(ctx,bus,freq,when,streak) {
+        // Root – perfect fifth – octave. Root normalized for speaker range;
+        // this is a *separate* celebration chime, not the lesson pitch.
+        let root=freq;
+        while(root<330)root*=2;
+        while(root>660)root/=2;
+        const sparkle=streak>=5?1.07:1;
+        playCrystal(ctx,bus,root,when+.115,.79*sparkle);
+        playCrystal(ctx,bus,root*1.5,when+.245,.65*sparkle);
+        playCrystal(ctx,bus,root*2,when+.375,.54*sparkle);
+      }
+      function playGentleError(ctx,bus,when) {
+        // A restrained descending wooden cue, followed by the correct pitch.
+        playCrystal(ctx,bus,392,when,.26);
+        playCrystal(ctx,bus,349.23,when+.095,.18);
+      }
+      function soundFor(note,correct) {
+        if(!save.sound)return;
+        try {
+          const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+          if(!AudioContextClass)return;
+          if(audioCtx?.state==='closed'){audioCtx=null;outputGain=null;}
+          if(!audioCtx)audioCtx=new AudioContextClass();
+          if(!outputGain)outputGain=makeOutputBus(audioCtx);
+          if(audioCtx.state!=='running')audioCtx.resume().catch(()=>{});
+          const start=audioCtx.currentTime+.012;
+          const hz=440*Math.pow(2,(midiOf(note)-69)/12);
+          outputGain.gain.setTargetAtTime(1*.66,audioCtx.currentTime,.012);
+          if(correct) {
+            playFeltPiano(audioCtx,outputGain,hz,start,.95);
+            playReward(audioCtx,outputGain,hz,start,state.streak);
+          } else {
+            playGentleError(audioCtx,outputGain,start);
+            playFeltPiano(audioCtx,outputGain,hz,start+.245,.78);
+          }
+        } catch(e) { /* No audio support: notes and scoring remain fully usable. */ }
+      }
+      function answer(clicked) {
+        if(state.locked||!state.question)return;
+        state.locked=true;state.phase='answered';
+        const correct=clicked.dataset.spelling===spelled(state.question);
+        state.runAnswers++;save.attempts=safeAdd(save.attempts,1);
+        let earned=0;
+        if(correct){
+          state.streak++;state.runRight++;save.correct=safeAdd(save.correct,1);
+          save.bestStreak=Math.max(save.bestStreak,state.streak);
+          earned=10+Math.min(10,state.streak)*2;
+          // A hint used at any point during this question reduces the award, even if hidden again.
+          if(state.hintUsed) earned=Math.max(6,Math.round(earned*.65));
+          state.runPoints=safeAdd(state.runPoints,earned);save.score=safeAdd(save.score,earned);save.xp=safeAdd(save.xp,earned);
+          save.weaknesses[keyFor(state.question)]=Math.max(0,validInt(save.weaknesses[keyFor(state.question)])-1);
+          clicked.classList.add('correct');$('sheet').classList.add('good-flash');
+          $('feedback').className='feedback good';
+          $('feedback').textContent=state.streak>=5?'✦  Wonderful!  +'+earned+' · '+state.streak+' in a row':'✦  Correct!  +'+earned+' points';
+        } else {
+          state.streak=0;clicked.classList.add('incorrect');$('sheet').classList.add('bad-flash');
+          save.weaknesses[keyFor(state.question)]=Math.min(10,validInt(save.weaknesses[keyFor(state.question)])+1);
+          for(const b of $('answers').children) if(b.dataset.spelling===spelled(state.question))b.classList.add('correct');
+          $('feedback').className='feedback bad';
+          $('feedback').textContent='Not quite · It is '+spelled(state.question)+state.question.octave+' ('+state.question.letter+ACC_NAME[state.question.acc]+')';
+        }
+        for(const b of $('answers').children)b.disabled=true;
+        showReveal(correct,earned);
+        soundFor(state.question,correct);
+        if(correct && navigator.vibrate && (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+          try{navigator.vibrate(12);}catch(e){}
+        }
+        refreshHud();storeSave();
+        scheduleFeedback(correct?1650:2350);
+      }
+      function finishRecital() {
+        stopFeedbackTimer();clearReveal();
+        state.locked=true;state.phase='results';
+        save.bestRecital=Math.max(save.bestRecital,state.runRight);
+        storeSave();refreshHud();presentResults();
+      }
+      function presentResults() {
+        const perfect=state.runRight===12;
+        $('resultsKicker').textContent=perfect?'A PERFECT RECITAL':'RECITAL '+(save.recitalNumber<10000?String(save.recitalNumber).padStart(2,'0'):displayCount(save.recitalNumber))+' COMPLETE';
+        $('resultsTitle').textContent=perfect?'A flawless recital.':state.runRight>=9?'Beautifully played.':state.runRight>=6?'Your reading grows stronger.':'Every note is progress.';
+        $('resultsSubtitle').textContent=perfect?'Every symbol in its place. You are reading like a virtuoso.':'Return to the staff and watch unfamiliar notes become familiar.';
+        $('resultsRight').textContent=state.runRight;
+        $('resultsAccuracy').textContent=Math.round(100*state.runRight/12)+'%';
+        $('resultsPoints').textContent=state.runPoints;
+        $('resultsBest').textContent=save.bestRecital+'/12';
+        $('resultsDialog').showModal();
+      }
+      function startRecital(increment=true) {
+        stopFeedbackTimer();
+        if(increment && state.runAnswers>0)save.recitalNumber=safeAdd(save.recitalNumber,1);
+        state.streak=0;state.runRight=0;state.runPoints=0;state.runAnswers=0;
+        state.locked=false;state.recent=[];state.phase='question';state.clefCounts={treble:0,bass:0};
+        newQuestion();
+      }
+      function refreshLabelButton() {
+        $('labelsBtn').setAttribute('aria-pressed',String(save.labels));
+        $('labelsBtnText').textContent=save.labels?'Hide labels':'Show labels';
+        $('bottomHint').innerHTML=save.labels?'Guided practice earns fewer points. <strong>Hide labels</strong> when you feel ready.':'Tap <strong>Show labels</strong> to reveal the note names on the staff.';
+      }
+      function refreshSoundButton() {
+        $('soundOnIcon').classList.toggle('hidden',!save.sound);
+        $('soundOffIcon').classList.toggle('hidden',save.sound);
+        $('soundBtn').setAttribute('aria-label',save.sound?'Mute sound':'Unmute sound');
+        $('soundBtn').title=save.sound?'Mute sound':'Unmute sound';
+      }
+      function refreshPicks() {
+        document.querySelectorAll('[data-clef]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.clef===state.pendingClef)));
+        document.querySelectorAll('[data-difficulty]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.difficulty===state.pendingDifficulty)));
+      }
+      function openSettings() {
+        clearReveal();
+        if(state.phase==='answered') {
+          // A pending end-of-recital timer must not open a second modal on top of settings.
+          stopFeedbackTimer();
+          if(state.runAnswers>=SESSION_LENGTH) {
+            state.locked=true;state.phase='results';
+            save.bestRecital=Math.max(save.bestRecital,state.runRight);
+            state.settingsReturnToResults=true;
+            storeSave();refreshHud();
+          } else {
+            // Complete feedback before opening a pause-like settings dialog.
+            newQuestion();
+          }
+        }
+        state.pendingClef=save.clef;state.pendingDifficulty=save.difficulty;
+        refreshPicks();$('settingsDialog').showModal();
+      }
+      $('settingsBtn').addEventListener('click',openSettings);
+      $('soundBtn').addEventListener('click',()=>{
+        save.sound=!save.sound;
+        if(outputGain && audioCtx)outputGain.gain.setTargetAtTime(save.sound?.66:0,audioCtx.currentTime,.012);
+        refreshSoundButton();storeSave();
+      });
+      $('labelsBtn').addEventListener('click',()=>{save.labels=!save.labels;if(save.labels&&state.phase==='question')state.hintUsed=true;refreshLabelButton();if(state.question)drawStaff(state.question);storeSave();});
+      document.querySelectorAll('[data-clef]').forEach(b=>b.addEventListener('click',()=>{state.pendingClef=b.dataset.clef;refreshPicks();}));
+      document.querySelectorAll('[data-difficulty]').forEach(b=>b.addEventListener('click',()=>{state.pendingDifficulty=b.dataset.difficulty;refreshPicks();}));
+      document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>$(b.dataset.close).close()));
+      $('applySettings').addEventListener('click',()=>{
+        state.settingsReturnToResults=false;
+        save.clef=state.pendingClef;save.difficulty=state.pendingDifficulty;
+        $('settingsDialog').close();if($('resultsDialog').open)$('resultsDialog').close();
+        startRecital(true);
+      });
+      $('replayBtn').addEventListener('click',()=>{$('resultsDialog').close();startRecital(true);});
+      $('changeModeBtn').addEventListener('click',()=>{$('resultsDialog').close();state.settingsReturnToResults=true;openSettings();});
+      $('settingsDialog').addEventListener('close',()=>{
+        // Cancelling settings from the finished recital must never strand the player on a locked board.
+        if(state.settingsReturnToResults){state.settingsReturnToResults=false;$('resultsDialog').showModal();}
+      });
+      document.addEventListener('keydown',e=>{
+        const tag=document.activeElement?.tagName;
+        if($('settingsDialog').open||$('resultsDialog').open||e.altKey||e.ctrlKey||e.metaKey||tag==='INPUT'||tag==='TEXTAREA')return;
+        if(/^[1-8]$/.test(e.key)) {
+          const button=$('answers').children[Number(e.key)-1];
+          if(button&&!button.disabled){e.preventDefault();button.click();}
+        }
+      });
+      // Backdrop tap closes settings only; results require a deliberate choice.
+      $('settingsDialog').addEventListener('click',e=>{if(e.target===$('settingsDialog'))$('settingsDialog').close();});
+      $('resultsDialog').addEventListener('cancel',e=>{e.preventDefault();$('resultsDialog').close();startRecital(true);});
+      refreshLabelButton();refreshSoundButton();
+      if(!restoreSession())startRecital(false);
+    })();
+  </script>
+</body>
+</html>
