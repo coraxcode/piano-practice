@@ -1,0 +1,2014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0a0d">
+  <meta name="description" content="Vesper — an offline, mobile-first music game: sight-reading on the treble and bass staff, ear training with twelve instruments, and MIDI keyboard play.">
+  <!--
+  Engraving credit: Copyright 2022 The Noto Project Authors
+  (https://github.com/notofonts/music). Noto Music is licensed under
+  SIL Open Font License 1.1: https://openfontlicense.org/open-font-license-official-text/
+  Music glyph shapes in this app derive from that open source typeface.
+  Redistributors should retain this notice and the full OFL license when required.
+-->
+  <title>Vesper VII — Sight-Reading &amp; Ear Training</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="color-scheme" content="dark">
+  <style>
+    /* ───────────────────────────────────────────────────────────────
+       Vesper VII · one design system.
+       Spacing follows the Fibonacci series (5 · 8 · 13 · 21 · 34), the score
+       paper and the two-column layout use the golden ratio (1 : 1.618).
+       Every answer key is a golden rectangle wherever its width allows.
+       Tap targets never drop below 42 px, whatever the proportion says.
+       ─────────────────────────────────────────────────────────────── */
+    :root {
+      color-scheme: dark;
+      --ink:#0b0a0d;
+      --gold:#e5c78e; --gold-soft:#c4a36e; --gold-dark:#6b5639;
+      --cream:#f6efdf; --muted:#b0a598;
+      --hairline:rgba(231,200,145,.23);
+      --success:#bbd5b0; --error:#edaaa1;
+      --phi:1.61803398875;
+      --s1:5px; --s2:8px; --s3:13px; --s4:21px;
+      --gap:13px;                          /* rhythm between the main blocks */
+      --key-h:76px;                        /* height of one answer key; replaced by width / 1.618 where supported */
+      --key-min:48px;
+      --key-font:clamp(28px,6vw,36px);
+    }
+    *, *::before, *::after {box-sizing:border-box}
+    html {min-height:100%; background:var(--ink); -webkit-text-size-adjust:100%; overscroll-behavior-y:none}   /* no accidental pull-to-refresh mid-recital */
+    body {
+      margin:0; min-height:100vh; min-height:100dvh; color:var(--cream);
+      background:
+        radial-gradient(ellipse 720px 400px at 50% -180px,rgba(153,108,54,.17),transparent 74%),
+        linear-gradient(125deg,rgba(207,171,109,.024),transparent 39%,rgba(146,101,53,.025) 90%),
+        #0b0a0d;
+      font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+      -webkit-tap-highlight-color:transparent; overflow-x:hidden; touch-action:manipulation;
+    }
+    body::before {
+      content:""; position:fixed; inset:0; pointer-events:none; opacity:.27; z-index:0;
+      background-image:
+        repeating-linear-gradient(90deg,transparent 0,transparent 119px,rgba(220,190,135,.018) 120px),
+        repeating-linear-gradient(0deg,transparent 0,transparent 119px,rgba(220,190,135,.014) 120px);
+    }
+    button {font:inherit; cursor:pointer; color:inherit; -webkit-appearance:none; appearance:none; touch-action:manipulation}
+    button:focus-visible, summary:focus-visible {outline:2px solid #ffdc9c; outline-offset:4px}
+    button:disabled {cursor:default}
+    .hidden {display:none!important}
+    /* Shown only if the script has not taken over after a moment: JavaScript is off, or the browser is too old. */
+    .boot-note {visibility:hidden; margin:var(--gap) 0 0; padding:var(--s3); border:1px solid var(--hairline); border-radius:var(--s3); background:rgba(255,255,255,.022); color:var(--cream); font-size:12px; line-height:1.55; text-align:center; animation:boot-note .01s linear 1.6s forwards}
+    .ready .boot-note {display:none}
+    @keyframes boot-note {to {visibility:visible}}
+    .sr-only {position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0}
+
+    /* ── Shell ─────────────────────────────────────────────────── */
+    .app {
+      position:relative; z-index:1; width:min(100% - 26px,705px); margin:0 auto;
+      padding:max(13px,env(safe-area-inset-top)) 0 max(21px,env(safe-area-inset-bottom));
+    }
+    .topbar {display:flex; align-items:center; justify-content:space-between; min-height:50px; gap:var(--s2)}
+    .identity {display:flex; align-items:center; min-width:0; gap:var(--s2); flex:0 0 auto}
+    .emblem {width:34px; height:34px; border:1px solid rgba(229,199,142,.52); transform:rotate(45deg); display:grid; place-items:center; flex:0 0 auto; border-radius:3px; box-shadow:0 0 28px rgba(182,135,70,.09)}
+    .emblem span {transform:rotate(-45deg); color:var(--gold); font:21px/1 Georgia,serif; margin-top:-1px}
+    .brand-name {font:600 18px/.96 Georgia,"Times New Roman",serif; letter-spacing:.26em; white-space:nowrap}
+    .brand-sub {margin-top:6px; color:var(--gold-soft); text-transform:uppercase; letter-spacing:.23em; font-size:8px; font-weight:700; white-space:nowrap}
+
+    /* Mode switch: the two disciplines of the atelier. */
+    .modes {
+      flex:1 1 auto; min-width:0; max-width:233px; display:grid; grid-template-columns:1fr 1fr; gap:3px; padding:2px;
+      border:1px solid var(--hairline); border-radius:var(--s3); background:rgba(255,255,255,.022);
+    }
+    .mode {
+      min-width:0; min-height:44px; border:0; border-radius:10px; background:transparent; color:#b9ac98;
+      display:flex; align-items:center; justify-content:center; gap:var(--s2);
+      font-size:10px; font-weight:750; letter-spacing:.17em; text-transform:uppercase;
+      transition:background .2s ease,color .2s ease;
+    }
+    .mode svg {width:17px; height:17px; flex:0 0 auto; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round}
+    .mode[aria-pressed="true"] {background:linear-gradient(135deg,#f0d49c,#c7a46b); color:#1a1511; box-shadow:0 3px 13px rgba(204,150,72,.16)}
+    .mode:focus-visible {outline-offset:2px}
+
+    .top-actions {display:flex; gap:var(--s2); flex:0 0 auto}
+    .icon-btn {display:grid; place-items:center; width:44px; height:44px; border:1px solid var(--hairline); border-radius:var(--s3); background:rgba(255,255,255,.022); color:var(--gold); transition:.2s ease}
+    .icon-btn:active {transform:scale(.95)}
+    .icon-btn svg {width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round}
+
+    /* The title is an ornament: JS shows it only where the paper keeps its full size beside it. */
+    .intro {display:none; text-align:center; padding:var(--s4) 3px var(--s2)}
+    .app.has-intro .intro {display:block}
+    .eyebrow {display:flex; justify-content:center; align-items:center; gap:9px; color:var(--gold-soft); font-size:9px; font-weight:700; letter-spacing:.26em; text-transform:uppercase}
+    .eyebrow::before, .eyebrow::after {content:""; width:25px; height:1px; background:linear-gradient(90deg,transparent,var(--gold-dark))}
+    .eyebrow::after {transform:rotate(180deg)}
+    .hero {font:400 clamp(30px,7.5vw,49px)/1.08 Georgia,"Times New Roman",serif; letter-spacing:-.035em; margin:var(--s2) 0 var(--s1); text-shadow:0 2px 21px rgba(226,179,103,.07)}
+    .hero em {color:var(--gold); font-weight:400}
+    .hero-line {color:var(--muted); font-size:12px; line-height:1.35; margin:0; letter-spacing:.02em}
+
+    /* ── Scorecard ─────────────────────────────────────────────── */
+    .stats {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin-top:var(--gap); border:1px solid var(--hairline); background:linear-gradient(145deg,rgba(229,197,133,.075),rgba(18,16,19,.6)); border-radius:var(--s3); overflow:hidden}
+    .stat {padding:var(--s3) var(--s2) var(--s2); text-align:center; position:relative; min-width:0; overflow:hidden}
+    .stat + .stat::before {content:""; position:absolute; left:0; top:23%; height:54%; width:1px; background:var(--hairline)}
+    .stat .num {font:400 23px/1 Georgia,serif; color:var(--cream); font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .stat .num.streak {color:var(--gold)}
+    .stat .lbl {margin-top:5px; color:#ada090; font-size:9px; letter-spacing:.17em; text-transform:uppercase}
+    .progress-head {display:flex; align-items:center; justify-content:space-between; gap:var(--s3); margin:var(--gap) 4px var(--s2)}
+    .progress-label {font-size:10px; text-transform:uppercase; letter-spacing:.16em; color:var(--gold); font-weight:700; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+    .progress-rank {font-size:10px; color:var(--muted); max-width:50%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .progress-track {height:4px; background:#30291f; border-radius:20px; overflow:hidden; margin:0 4px}
+    .progress-fill {height:100%; width:0; background:linear-gradient(90deg,#8a653d,#f1d59c); transition:width .35s ease; border-radius:20px}
+
+    /* ── The sheet ─────────────────────────────────────────────── */
+    .sheet {
+      position:relative; margin-top:var(--gap); border:1px solid rgba(227,194,131,.49); border-radius:var(--s4);
+      background:radial-gradient(ellipse at 50% 0%,rgba(214,171,97,.10),transparent 52%),linear-gradient(160deg,#211b1d 0%,#121116 75%);
+      padding:var(--s4) var(--s3) var(--s3); box-shadow:0 20px 53px rgba(0,0,0,.36),inset 0 0 0 4px rgba(0,0,0,.14); isolation:isolate;
+    }
+    .sheet::before {content:""; position:absolute; inset:6px; z-index:-1; border:1px solid rgba(234,202,150,.13); border-radius:15px; pointer-events:none}
+    .sheet-heading {display:flex; align-items:center; justify-content:space-between; gap:var(--s2); padding:0 8px; margin:2px 1px var(--s3); min-height:44px}
+    .clef-caption {display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0}
+    .chapter {font-size:10px; letter-spacing:.17em; text-transform:uppercase; font-weight:750; color:#e9cd95}
+    .chapter-level {font-size:9px; letter-spacing:.07em; color:#bdad94}
+    .labels-toggle {flex:0 0 auto; border:1px solid var(--hairline); display:flex; align-items:center; gap:var(--s1); color:#cdb995; background:rgba(229,196,134,.025); border-radius:99px; min-height:44px; padding:0 var(--s3); font-size:10px; white-space:nowrap}
+    .labels-toggle[aria-pressed="true"] {color:#181412; background:var(--gold); border-color:var(--gold)}
+    .labels-toggle .aa {font:bold 14px Georgia,serif}
+
+    /* Ivory score paper, 1.618 : 1. JS trims its height so the answers always stay on screen. */
+    .staff-stage {
+      position:relative; width:100%; display:flex; justify-content:center; align-items:center;
+      padding:3px 0; border:1px solid #bba886; border-radius:var(--s3); overflow:hidden;
+      background:radial-gradient(ellipse at 48% 36%,#fff9ea 0%,#f1e7d4 56%,#e3d5ba 100%);
+      box-shadow:inset 0 1px 1px #fffef2,inset 0 0 0 4px rgba(115,88,58,.045),0 8px 24px rgba(0,0,0,.25);
+    }
+    .staff-stage::before, .staff-stage::after {content:'✦'; position:absolute; z-index:1; top:9px; font:13px Georgia,serif; color:rgba(114,87,53,.33); pointer-events:none}
+    .staff-stage::before {left:12px}
+    .staff-stage::after {right:12px}
+    #staffSvg {display:block; width:100%; max-width:510px; height:auto; overflow:hidden; touch-action:manipulation; shape-rendering:geometricPrecision}
+    .staff-stage.fit #staffSvg {flex:1 1 auto; min-width:0; max-width:none; height:100%}
+    .staff-stage.is-ear:not(.is-study) #staffSvg {visibility:hidden}
+    .staff-line {stroke:#5c5449; stroke-width:1.12; opacity:.86}
+    .ledger-line {stroke:#494038; stroke-width:1.28; stroke-linecap:round}
+    .note-stem {stroke:#24201c; stroke-width:1.85; stroke-linecap:butt}
+    .target-head {fill:#24201c; stroke:none}
+    .engraved-clef, .accidental-path {fill:#342d25}
+    .guide-label {font:800 10px/1 Arial,sans-serif; fill:#74634e; paint-order:stroke; stroke:#f8efdf; stroke-width:2.5; stroke-linejoin:round; letter-spacing:.01em}
+    .guide-label.active {fill:#35291c; font-weight:900; stroke:#f4ddb3; stroke-width:2.8}
+    .target-label {font:bold 13px Georgia,serif; fill:#5a3820; paint-order:stroke; stroke:#f7eddd; stroke-width:4; stroke-linejoin:round}
+
+    /* Ear training: the paper holds a lacquered play seal instead of the staff. */
+    .ear-stage {position:absolute; inset:0; z-index:2; display:none; flex-direction:column; align-items:center; justify-content:center; gap:var(--s2)}
+    .staff-stage.is-ear:not(.is-study) .ear-stage {display:flex}
+    .ear-play {
+      position:relative; flex:0 0 auto; height:38.2%; min-height:48px; max-height:123px; aspect-ratio:1/1; padding:0;
+      border-radius:50%; border:1px solid #0f0c0a; color:#f0d49c; display:grid; place-items:center;
+      background:radial-gradient(circle at 38% 30%,#40362c,#1c1814 72%);
+      box-shadow:inset 0 0 0 1px rgba(240,212,156,.38),0 8px 21px rgba(64,44,22,.3);
+      transition:transform .16s ease;
+    }
+    .ear-play svg {width:38.2%; height:38.2%; fill:currentColor; margin-left:7%}
+    .ear-play::before, .ear-play::after {content:""; position:absolute; inset:-30.9%; border-radius:50%; border:1px solid rgba(74,58,40,.27); pointer-events:none}
+    .ear-play::after {inset:-80.9%; border-color:rgba(74,58,40,.12)}
+    .ear-play:active {transform:scale(.96)}
+    .ear-play:focus-visible {outline:2px solid #6b4a1f; outline-offset:3px}
+    .staff-stage.is-playing .ear-play::before {animation:ear-ring 1.05s cubic-bezier(.16,1,.3,1) infinite}
+    .staff-stage.is-playing .ear-play::after {animation:ear-ring 1.05s cubic-bezier(.16,1,.3,1) .21s infinite}
+    @keyframes ear-ring {0%{transform:scale(.618);opacity:1} 100%{transform:scale(1);opacity:.2}}
+    .ear-caption {position:relative; font-size:9px; font-weight:750; letter-spacing:.19em; text-transform:uppercase; color:#5d4d3a; text-align:center; padding:0 var(--s2); line-height:1.3}
+
+    .guide {display:none; text-align:center; border-top:1px solid var(--hairline); padding:var(--s2) 10px 2px; margin:var(--s2) 5px 0}
+    .guide.open {display:block}
+    .guide-note {font:400 17px Georgia,serif; color:var(--gold); margin:0}
+    .guide-rule {display:none; font-size:10px; color:#b7a995; line-height:1.55; margin:4px 0 0}
+    @media (min-height:820px) {.guide-rule {display:block}}
+    .guide-rule b {font-weight:750; color:#e5d4ba}
+    .guide-rule i {font-style:italic; color:#cdbb9c}
+    .feedback {text-align:center; min-height:34px; display:flex; justify-content:center; align-items:center; gap:var(--s1); font-size:12px; color:#d4c3a5; padding:var(--s3) var(--s2) 0; letter-spacing:.01em; transition:color .12s ease}
+    .feedback.good {color:var(--success)}
+    .feedback.bad {color:var(--error)}
+    .sheet.good-flash {animation:goodpulse .52s ease}
+    .sheet.bad-flash {animation:badpulse .46s ease}
+    @keyframes goodpulse {0%,100%{box-shadow:0 20px 53px rgba(0,0,0,.36),inset 0 0 0 4px rgba(0,0,0,.14)} 35%{box-shadow:0 0 0 2px rgba(187,213,176,.28),0 0 44px rgba(168,221,147,.14)}}
+    @keyframes badpulse {0%,100%{box-shadow:0 20px 53px rgba(0,0,0,.36),inset 0 0 0 4px rgba(0,0,0,.14)} 35%{box-shadow:0 0 0 2px rgba(237,170,161,.32),0 0 30px rgba(220,106,100,.11)}}
+    .decor {position:absolute; top:var(--s3); color:rgba(212,171,102,.55); font:18px Georgia,serif; pointer-events:none}
+    .decor.left {left:var(--s3)} .decor.right {right:var(--s3)}
+
+    /* ── Answer keys ───────────────────────────────────────────── */
+    .answer-section {margin-top:var(--gap)}
+    .answer-heading {display:flex; align-items:center; gap:var(--s2); margin:0 2px var(--s2); min-height:13px}
+    .answer-heading h2 {flex:1 1 auto; min-width:0; margin:0; color:var(--gold-soft); font-size:10px; font-weight:750; letter-spacing:.19em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .keyboard-help {display:none; flex:0 0 auto; color:#aaa091; font-size:10px; letter-spacing:.02em; white-space:nowrap}
+    @media (hover:hover) and (pointer:fine) and (min-width:600px) {.keyboard-help {display:block}}
+    .midi-chip {flex:0 0 auto; display:inline-flex; align-items:center; gap:5px; color:var(--success); font-size:9px; font-weight:750; letter-spacing:.17em; text-transform:uppercase}
+    .midi-chip i {width:6px; height:6px; border-radius:50%; background:currentColor; box-shadow:0 0 8px currentColor}
+    .answers {--key-cols:4; --key-gap:var(--s2); display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:var(--key-gap)}
+    /* Golden keys: height = width / 1.618, measured from the key pad's own width. */
+    @supports (width:1cqw) {
+      .answer-section {container-type:inline-size}
+      .answers {--key-h:clamp(var(--key-min), calc((100cqw - (var(--key-cols) - 1) * var(--key-gap)) / var(--key-cols) / var(--phi)), 89px)}
+    }
+    .answer {
+      grid-column:span 2; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+      min-width:0; min-height:var(--key-h); padding:var(--s2) 3px; border:1px solid rgba(231,195,129,.32); border-radius:var(--s3);
+      background:linear-gradient(145deg,rgba(203,160,94,.095),rgba(211,179,135,.014)),#18151b;
+      color:#f3e7d4; user-select:none; -webkit-user-select:none; font:400 var(--key-font)/1 Georgia,serif;
+      box-shadow:inset 0 1px 0 rgba(244,219,173,.045),0 5px 18px rgba(0,0,0,.11);
+      transition:border-color .16s,transform .12s,background .16s,box-shadow .16s,opacity .16s;
+    }
+    .answer:active:not(:disabled) {transform:scale(.96)}
+    .answer:focus-visible {outline:2px solid #f7d9a0; outline-offset:3px}
+    .answer[data-key]::before {content:attr(data-key); position:absolute; top:var(--s2); left:var(--s2); font:700 9px/1 Arial,sans-serif; color:#a49782}
+    .answer .twin {font:400 11px/1 Georgia,serif; color:#a49782; letter-spacing:.02em}
+    .answer.correct {color:#dff0d4; border-color:#93bb89; background:#203027; box-shadow:0 0 24px rgba(106,175,91,.12)}
+    .answer.incorrect {color:#ffd3cf; border-color:#d5807a; background:#362422}
+    .answer.correct .twin, .answer.incorrect .twin {color:inherit; opacity:.75}
+    /* Right and wrong are never told by color alone: each marked key also carries a sign. */
+    .answer.correct::after, .answer.incorrect::after {position:absolute; top:var(--s1); right:var(--s2); font:700 13px/1 Arial,sans-serif}
+    .answer.correct::after {content:"✓"}
+    .answer.incorrect::after {content:"×"; font-size:15px}
+    .answer:disabled:not(.correct):not(.incorrect) {opacity:.49}
+    /* Seven keys: the second row of three sits centered under the first row of four. */
+    .answers.k7 .answer:nth-child(5) {grid-column:2 / span 2}
+    .answers.k12 .answer {padding-block:var(--s1); font-size:clamp(22px,5vw,26px)}
+    .answers.solfege .answer {font-size:clamp(20px,4.7vw,27px)}
+    .answers.k12.solfege .answer {font-size:clamp(16px,3.9vw,22px)}
+
+    .bottom-hint {text-align:center; color:#aaa091; font-size:11px; line-height:1.45; padding:var(--s3) var(--s1) var(--s1)}
+    .bottom-hint strong {color:#cdbb9c; font-weight:600}
+    .footer {display:flex; justify-content:center; gap:var(--s2); align-items:center; color:#a18a62; font:10px Georgia,serif; letter-spacing:.11em; margin:var(--s3) 0 0}
+    /* Hover feedback only where a pointer can hover: on touch screens it would stick to the last tapped spot. */
+    @media (hover:hover) {
+      .mode:not([aria-pressed="true"]):hover {background:rgba(229,196,134,.09); color:var(--gold)}
+      .icon-btn:hover {background:rgba(229,196,134,.09); border-color:rgba(229,196,134,.43)}
+      .answer:hover:not(:disabled) {border-color:rgba(239,207,143,.8); background:#25211f; transform:translateY(-1px)}
+      .primary-btn:hover {filter:brightness(1.07)}
+    }
+    .footer span {width:27px; height:1px; background:linear-gradient(90deg,transparent,#574a35)}
+    .footer span:last-child {transform:rotate(180deg)}
+
+    /* ── The Moment: unequivocal answer reveal over the paper ──── */
+    .feedback-reveal {
+      position:absolute; inset:0; z-index:4; isolation:isolate; display:grid; place-items:center; overflow:hidden; border-radius:11px;
+      opacity:0; visibility:hidden; pointer-events:none; transform:scale(1.035);
+      transition:opacity .24s ease-out,transform .36s cubic-bezier(.16,1,.3,1),visibility 0s linear .36s;
+      background:linear-gradient(135deg,rgba(13,29,23,.965),rgba(18,24,21,.975)); color:#bcebc7;
+    }
+    .feedback-reveal.is-visible {opacity:1; visibility:visible; transform:scale(1); transition:opacity .22s ease-out,transform .36s cubic-bezier(.16,1,.3,1),visibility 0s}
+    .feedback-reveal.is-wrong {background:linear-gradient(135deg,rgba(36,20,24,.97),rgba(26,19,22,.985)); color:#ffb8b4}
+    .feedback-reveal::before {content:''; position:absolute; inset:7px; border:1px solid currentColor; border-radius:7px; opacity:.23; pointer-events:none}
+    .feedback-reveal::after {content:''; position:absolute; left:50%; top:50%; width:min(230px,60%); aspect-ratio:1; transform:translate(-50%,-50%); background:radial-gradient(circle,rgba(104,209,147,.16),transparent 70%); pointer-events:none; z-index:-1}
+    .feedback-reveal.is-wrong::after {background:radial-gradient(circle,rgba(230,112,113,.13),transparent 70%)}
+    .feedback-reveal-inner {width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(3px,1vh,6px); padding:7px 12px; text-align:center}
+    .feedback-mark {width:clamp(31px,5.5vh,46px); height:clamp(31px,5.5vh,46px); display:grid; place-items:center; border:1px solid currentColor; border-radius:50%; position:relative; font:400 clamp(22px,4.5vh,30px)/1 Georgia,serif; flex:0 0 auto;
+      box-shadow:0 0 0 5px color-mix(in srgb,currentColor 8%,transparent),0 0 22px color-mix(in srgb,currentColor 8%,transparent)}
+    .feedback-title {margin:0; font:400 clamp(25px,6.3vw,40px)/1.08 Georgia,serif; letter-spacing:.115em; text-transform:uppercase; text-shadow:0 0 25px color-mix(in srgb,currentColor 18%,transparent)}
+    .feedback-reveal.is-wrong .feedback-title {font-size:clamp(23px,5.8vw,37px)}
+    .feedback-subtitle {font:700 clamp(10px,1.5vw,12px)/1.25 Inter,Arial,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:#f4e5c4}
+    .feedback-note {font:400 clamp(11px,2.5vw,14px)/1.2 Georgia,serif; letter-spacing:.03em; color:#d4c3ac}
+    .feedback-ornament {height:1px; width:calc(26px * var(--phi)); background:currentColor; opacity:.48; margin:1px 0}
+    .feedback-reveal.is-visible .feedback-mark {animation:reveal-seal .44s cubic-bezier(.17,1.25,.36,1) both}
+    @keyframes reveal-seal {0%{transform:scale(.64);opacity:.1} 70%{transform:scale(1.07);opacity:1} 100%{transform:scale(1)}}
+    /* A short stage keeps the reveal legible by dropping its ornaments first. */
+    .staff-stage.is-short .feedback-reveal-inner {gap:3px; padding:5px 8px}
+    .staff-stage.is-short .feedback-mark {width:28px; height:28px; font-size:19px}
+    .staff-stage.is-short .feedback-title, .staff-stage.is-short .feedback-reveal.is-wrong .feedback-title {font-size:22px}
+    .staff-stage.is-short .feedback-ornament {display:none}
+    .staff-stage.is-short .feedback-subtitle {font-size:10px}
+    .staff-stage.is-short .feedback-note {font-size:11px}
+
+    /* ── Dialogs ───────────────────────────────────────────────── */
+    dialog {border:0; padding:0; color:var(--cream); background:transparent; max-width:calc(100vw - 24px); max-height:calc(100dvh - 26px); overflow:visible}
+    dialog::backdrop {background:rgba(0,0,0,.75); backdrop-filter:blur(8px)}
+    .dialog-box {width:min(450px,calc(100vw - 26px)); max-height:calc(100dvh - 26px); overflow-y:auto; overscroll-behavior:contain; background:linear-gradient(150deg,#211c1e,#111117 75%); border:1px solid rgba(229,195,135,.58); border-radius:var(--s4); box-shadow:0 28px 90px rgba(0,0,0,.66); padding:var(--s4); position:relative; counter-reset:field}
+    .dialog-top {display:flex; align-items:start; justify-content:space-between; gap:var(--s2)}
+    .dialog-kicker {font-size:10px; color:var(--gold-soft); letter-spacing:.2em; text-transform:uppercase; margin-bottom:var(--s2)}
+    .dialog-box h2 {font:400 31px/1.13 Georgia,serif; margin:0 0 var(--s2); color:#f4e7d0}
+    .dialog-copy {color:#aa9f91; font-size:12px; line-height:1.6; margin:0 0 var(--s4)}
+    .close-btn {width:44px; height:44px; border:1px solid var(--hairline); border-radius:50%; background:rgba(255,255,255,.025); color:var(--gold); font-size:21px; line-height:1; flex:0 0 auto}
+    .field-label {text-transform:uppercase; color:var(--gold); font-size:10px; letter-spacing:.19em; font-weight:750; margin:var(--s4) 0 var(--s2)}
+    .field-label::before {counter-increment:field; content:counter(field,decimal-leading-zero) " / "}
+    .pick-row {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--s2)}
+    .pick-row.two {grid-template-columns:repeat(2,minmax(0,1fr))}
+    .field-note {margin:var(--s2) 0 0; color:#9f9382; font-size:10px; line-height:1.5}
+    .pick {min-width:0; min-height:55px; border:1px solid var(--hairline); border-radius:var(--s2); background:#1b1a20; color:#c0b4a0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:3px; font-size:12px; padding:var(--s2) 3px; text-align:center}
+    .pick span {font-size:9px; color:#a09482}
+    .pick[aria-pressed="true"] {background:#3b2e20; color:#f1d7a3; border-color:#c49b5e; box-shadow:inset 0 0 0 1px rgba(197,153,87,.15)}
+    .pick[aria-pressed="true"] span {color:#cbb18d}
+    .midi-panel {border:1px solid var(--hairline); border-radius:var(--s2); background:#1b1a20; padding:var(--s3); margin-bottom:var(--s2)}
+    .midi-status {display:flex; align-items:flex-start; gap:var(--s2); color:#c0b4a0; font-size:11px; line-height:1.55}
+    .midi-status span {min-width:0; overflow-wrap:anywhere}
+    .midi-dot {flex:0 0 auto; width:8px; height:8px; margin-top:5px; border-radius:50%; background:#6f675b}
+    .midi-status.is-ready {color:#dff0d4}
+    .midi-status.is-ready .midi-dot {background:var(--success); box-shadow:0 0 8px var(--success)}
+    .midi-status.is-pending .midi-dot {background:var(--gold)}
+    .midi-status.is-bad .midi-dot {background:var(--error)}
+    .midi-panel .secondary-btn {margin-top:var(--s3)}
+    .dialog-tip {margin:var(--s4) 0; color:#9f9382; line-height:1.55; font-size:11px; border-top:1px solid var(--hairline); padding-top:var(--s3)}
+    .dialog-tip b {color:#cdbb9c; font-weight:650}
+    /* The primary action stays in reach however long the settings grow. */
+    .dialog-actions {position:sticky; bottom:-21px; z-index:2; margin:0 -21px -21px; padding:var(--s3) var(--s4) var(--s4); background:linear-gradient(180deg,rgba(18,17,23,0),#131218 38%)}
+    .primary-btn {width:100%; min-height:55px; border:1px solid #f2ce91; border-radius:var(--s3); background:linear-gradient(135deg,#f0d49c,#c7a46b); color:#1a1511; font-size:12px; text-transform:uppercase; letter-spacing:.16em; font-weight:850; box-shadow:0 6px 27px rgba(204,150,72,.14); padding:var(--s2)}
+    .secondary-btn {width:100%; min-height:44px; border:1px solid var(--hairline); background:transparent; color:var(--gold); border-radius:var(--s3); font-size:12px; letter-spacing:.07em; margin-top:var(--s2)}
+    .secondary-btn:disabled {opacity:.55}
+    .results-medal {width:89px; height:89px; margin:0 auto var(--s3); display:grid; place-items:center; border:1px solid rgba(238,204,144,.65); border-radius:50%; background:radial-gradient(circle,#66503433,transparent 72%); color:var(--gold); font:42px Georgia,serif}
+    .results-content {text-align:center}
+    .results-score {font:400 46px/1 Georgia,serif; color:var(--gold)}
+    .results-score small {font-size:19px; color:#95856c}
+    .results-breakdown {display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s1); margin:var(--s4) 0; border-block:1px solid var(--hairline); padding:var(--s3) 0}
+    .results-breakdown strong {font:400 23px Georgia,serif; color:#f4e5c8; display:block; margin-bottom:5px}
+    .results-breakdown span {text-transform:uppercase; letter-spacing:.1em; font-size:9px; color:var(--muted)}
+    .license-disclosure {margin:0 0 var(--s2); border-top:1px solid var(--hairline); padding:var(--s2) 0 0; color:#b9aa93}
+    .license-disclosure summary {cursor:pointer; min-height:44px; display:flex; align-items:center; font-size:11px; letter-spacing:.02em; color:var(--gold-soft)}
+    .license-disclosure p {font-size:11px; line-height:1.55; color:var(--muted)}
+    .license-disclosure pre {font:10px/1.5 ui-monospace,Menlo,Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; color:#c1b5a3; max-height:190px; overflow-y:auto; padding:var(--s2); border:1px solid var(--hairline); border-radius:var(--s2)}
+
+    /* ═══ Responsive ═══════════════════════════════════════════════
+       Single column (portrait, or anything narrower than 480 px):
+       density steps down with the viewport height.
+       ══════════════════════════════════════════════════════════════ */
+    @media (min-width:700px) {
+      :root {--key-h:78px}
+      .app {padding-top:var(--s4)}
+      .sheet {padding:var(--s4) var(--s4) var(--s3)}
+    }
+    @media (max-width:479px) {
+      .brand-text {display:none}
+      .modes {max-width:none}
+    }
+    @media (max-width:380px) {
+      .app {width:calc(100% - 16px)}
+      .sheet {padding:var(--s3) var(--s2) var(--s2)}
+      .sheet-heading {padding:0 var(--s1); margin-bottom:var(--s2)}
+      .chapter {font-size:9px}
+      .labels-toggle {padding:0 8px; font-size:9px}
+      .answer-heading h2 {font-size:9px}
+      .decor {display:none}
+    }
+    @media (max-width:340px) {
+      .topbar {gap:var(--s1)}
+      .top-actions {gap:var(--s1)}
+      .mode {letter-spacing:.1em; gap:5px}
+      .sheet-heading {gap:5px}
+      .clef-caption {gap:3px}
+      .labels-toggle {padding-inline:6px}
+    }
+    @media (max-width:299px) {
+      .mode span {display:none}
+      .emblem {width:29px; height:29px}
+      .emblem span {font-size:18px}
+    }
+    @media (max-height:740px) and (orientation:portrait), (max-height:740px) and (max-width:479px) {
+      :root {--gap:8px; --key-h:63px}
+      .app {padding-bottom:max(13px,env(safe-area-inset-bottom))}
+      .stat {padding:var(--s2) var(--s1)}
+      .stat .num {font-size:21px}
+      .sheet {padding-top:var(--s3)}
+      .sheet-heading {margin-bottom:var(--s2)}
+      .feedback {min-height:29px; padding-top:var(--s2)}
+      .answers.k12 {--key-cols:6; grid-template-columns:repeat(12,minmax(0,1fr))}
+      .answers.k12 .answer {font-size:clamp(19px,5.4vw,26px); padding-inline:1px}
+      .answers.k12.solfege .answer {font-size:clamp(13px,3.7vw,18px)}
+      .answers.k12 .twin {font-size:10px}
+      .bottom-hint {padding:var(--s2) 3px 3px; font-size:10px}
+      .footer {margin-top:var(--s1)}
+    }
+    @media (max-height:650px) and (orientation:portrait), (max-height:650px) and (max-width:479px) {
+      :root {--key-h:55px}
+      .app {padding-top:max(8px,env(safe-area-inset-top)); padding-bottom:max(8px,env(safe-area-inset-bottom))}
+      .stat {padding:var(--s1)}
+      .stat .num {font-size:19px}
+      .stat .lbl {margin-top:3px; font-size:8px}
+      .progress-head {margin-bottom:var(--s1)}
+      .sheet {padding:var(--s2)}
+      .sheet-heading {margin-bottom:var(--s1)}
+      .feedback {min-height:26px; padding-top:var(--s1)}
+      .answer-heading {margin-bottom:var(--s1)}
+      .answer {padding-block:var(--s1)}
+      .guide.open {padding:4px 3px 1px; margin:3px 3px 0}
+      .guide-note {font-size:13px; line-height:1.25}
+      .bottom-hint, .footer {display:none}
+    }
+    @media (max-height:520px) and (orientation:portrait), (max-height:520px) and (max-width:479px) {
+      .stats, .guide.open {display:none}
+    }
+
+    /* ── Two columns: landscape phones, tablets and laptops ──────
+       Score on the left, the player's console on the right — 1.618 : 1. */
+    @media (orientation:landscape) and (min-width:480px) and (max-height:1100px) {
+      .app {
+        width:min(100% - 28px - env(safe-area-inset-left) - env(safe-area-inset-right),987px);
+        display:grid; grid-template-columns:minmax(0,1.618fr) minmax(0,1fr); column-gap:var(--s4);
+        grid-template-rows:auto auto auto 1fr auto auto auto;
+        grid-template-areas:"top top" "sheet stats" "sheet progress" "sheet intro" "sheet answers" "hint hint" "foot foot";
+      }
+      .topbar {grid-area:top}
+      .intro {grid-area:intro; align-self:center; padding:var(--s3) 0}
+      .intro .hero {font-size:clamp(26px,2.9vw,36px)}
+      .guide-rule {display:block}
+      .stats {grid-area:stats}
+      .progress {grid-area:progress}
+      .sheet {grid-area:sheet; align-self:start}
+      .answer-section {grid-area:answers; align-self:end}
+      .bottom-hint {grid-area:hint}
+      .footer {grid-area:foot}
+    }
+    @media (orientation:landscape) and (min-width:480px) and (max-width:899px) and (max-height:1100px) {
+      .keyboard-help {display:none}
+      :root {--key-font:clamp(22px,3.4vw,30px)}
+      .answers.k12 .answer {font-size:clamp(18px,2.7vw,24px)}
+      .answers.solfege .answer {font-size:clamp(16px,2.4vw,22px)}
+      .answers.k12.solfege .answer {font-size:clamp(13px,1.9vw,17px)}
+    }
+    @media (orientation:landscape) and (min-width:480px) and (max-height:520px) {
+      :root {--gap:5px; --key-h:52px; --key-min:44px}
+      .app {width:calc(100% - 26px - env(safe-area-inset-left) - env(safe-area-inset-right)); column-gap:var(--s3); padding:var(--s2) 0 max(8px,env(safe-area-inset-bottom))}
+      .topbar {min-height:44px}
+      .mode {min-height:38px}
+      .stat {padding:var(--s1)}
+      .stat .num {font-size:18px}
+      .stat .lbl {margin-top:2px; font-size:8px}
+      .progress-head {margin-bottom:var(--s1)}
+      .sheet {padding:var(--s2) var(--s2) var(--s1)}
+      .sheet-heading {margin:0 0 3px; min-height:38px}
+      .labels-toggle {min-height:38px}
+      .staff-stage {padding:0}
+      .feedback {min-height:21px; padding:3px var(--s1) 0; font-size:11px}
+      .answer-heading {margin:0 0 var(--s1)}
+      .answers {--key-gap:var(--s1)}
+      .answer {padding:3px 1px; border-radius:var(--s2)}
+      .answer[data-key]::before {top:3px; left:var(--s1); font-size:8px}
+      .answer.correct::after, .answer.incorrect::after {top:2px; right:var(--s1); font-size:11px}
+      .answers.k12 {--key-min:42px}
+      .answers.k12 .answer {padding-block:2px}
+      .answers.k12 .twin {font-size:9px}
+      .guide.open {padding:3px; margin:3px 0 0}
+      .guide-note {font-size:11px; line-height:1.2}
+      .guide-rule, .bottom-hint, .footer, .decor {display:none}
+    }
+    @media (orientation:landscape) and (min-width:480px) and (max-height:390px) {
+      /* Very short screens: the status line stays available to screen readers only. */
+      .stat {padding:2px var(--s1)}
+      .sheet {padding:var(--s1) var(--s2)}
+      .sheet .feedback {position:absolute; width:1px; height:1px; min-height:0; padding:0; margin:0; overflow:hidden; white-space:nowrap; clip-path:inset(50%)}
+      .answer-heading {display:none}
+    }
+    @media (orientation:landscape) and (min-width:480px) and (max-width:599px) and (max-height:520px) {
+      .app {width:calc(100% - 16px); grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); column-gap:var(--s2)}
+      .sheet {padding:var(--s2) var(--s2) 3px}
+      .chapter {font-size:9px; letter-spacing:.08em}
+      .chapter-level {font-size:8px}
+      .labels-toggle {font-size:8px; padding-inline:6px}
+    }
+
+    /* ── Preferences ───────────────────────────────────────────── */
+    @media (prefers-reduced-motion:reduce) {
+      *, *::before, *::after {animation-duration:.01ms!important; transition-duration:.01ms!important; scroll-behavior:auto!important}
+      .feedback-reveal, .feedback-reveal.is-visible {transition:none; transform:none}
+      .feedback-reveal.is-visible .feedback-mark {animation:none}
+      .staff-stage.is-playing .ear-play::before, .staff-stage.is-playing .ear-play::after {animation:none}
+    }
+    @media (prefers-contrast:more) {
+      .staff-line {stroke:#302923; opacity:1}
+      .guide-label {fill:#352c21}
+      .progress-track {height:5px}
+      .chapter-level, .bottom-hint, .keyboard-help, .stat .lbl {color:#ebdec9}
+      .answer {border-color:#dab778}
+    }
+    @media (forced-colors:active) {
+      .answer:focus-visible, .labels-toggle:focus-visible, .mode:focus-visible {outline:3px solid Highlight}
+      .answer.correct {outline:3px solid Highlight; outline-offset:-3px}
+      .answer.incorrect {outline:3px dashed CanvasText; outline-offset:-3px}
+      .mode[aria-pressed="true"], .labels-toggle[aria-pressed="true"], .pick[aria-pressed="true"] {outline:2px solid Highlight; outline-offset:-2px}
+      .feedback-reveal, .feedback-reveal.is-wrong {background:Canvas; color:CanvasText; outline:2px solid CanvasText; outline-offset:-3px}
+      .feedback-subtitle, .feedback-note {color:CanvasText}
+    }
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+    <h1 class="sr-only">Vesper — sight-reading and ear training</h1>
+    <header class="topbar">
+      <div class="identity" role="img" aria-label="Vesper, the music atelier">
+        <div class="emblem" aria-hidden="true"><span>✦</span></div>
+        <div class="brand-text"><div class="brand-name">VESPER</div><div class="brand-sub">THE MUSIC ATELIER</div></div>
+      </div>
+      <div class="modes" role="group" aria-label="Practice mode">
+        <button class="mode" type="button" data-mode="read" aria-pressed="true" aria-label="Read: sight-reading, name the written note" title="Sight-reading">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="9.2" cy="17.2" rx="4.3" ry="3.1" transform="rotate(-22 9.2 17.2)" fill="currentColor" stroke="none"/><path d="M13.2 16V4.5"/></svg><span>Read</span>
+        </button>
+        <button class="mode" type="button" data-mode="ear" aria-pressed="false" aria-label="Listen: ear training, name the note you hear" title="Ear training">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 6.5v11M12 9v6M16 4v16M20 9.5v5"/></svg><span>Listen</span>
+        </button>
+      </div>
+      <div class="top-actions">
+        <button id="soundBtn" class="icon-btn" type="button" aria-label="Mute sound" title="Toggle sound">
+          <svg id="soundOnIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>
+          <svg id="soundOffIcon" class="hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m16 9 5 6m0-6-5 6"/></svg>
+        </button>
+        <button id="settingsBtn" class="icon-btn" type="button" aria-label="Open practice settings" title="Practice settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/><circle cx="8" cy="7" r="2" fill="#15151b"/><circle cx="16" cy="17" r="2" fill="#15151b"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <p class="boot-note" id="bootNote">Vesper could not start. It needs JavaScript and a current browser: Chrome, Edge, Firefox or Safari from 2022 or later.</p>
+
+    <section class="intro" aria-label="Game introduction">
+      <div class="eyebrow">A DAILY MUSICAL RITUAL</div>
+      <p class="hero"><span id="heroVerb">Read</span> the <em>music.</em></p>
+      <p class="hero-line" id="heroLine">A little practice. A beautiful new language.</p>
+    </section>
+
+    <section class="stats" aria-label="Practice statistics">
+      <div class="stat"><div class="num streak" id="streakNum">0</div><div class="lbl">Streak ✦</div></div>
+      <div class="stat"><div class="num" id="pointsNum">0</div><div class="lbl">Points</div></div>
+      <div class="stat"><div class="num" id="accuracyNum">—</div><div class="lbl">Accuracy</div></div>
+    </section>
+
+    <section class="progress" aria-label="Session progress">
+      <div class="progress-head"><div class="progress-label" id="roundInfo">RECITAL 01 · 01 / 12</div><div class="progress-rank" id="levelInfo">LEVEL 1 · INITIATE</div></div>
+      <div class="progress-track" role="progressbar" aria-label="Recital progress" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0" id="progressTrack"><div class="progress-fill" id="progressFill"></div></div>
+    </section>
+
+    <section class="sheet" id="sheet" aria-labelledby="clefHeading">
+      <span class="decor left" aria-hidden="true">⌜</span><span class="decor right" aria-hidden="true">⌝</span>
+      <div class="sheet-heading">
+        <div class="clef-caption"><strong class="chapter" id="clefHeading">TREBLE CLEF</strong><span class="chapter-level" id="difficultyHeading">· Notes only</span></div>
+        <button id="labelsBtn" class="labels-toggle" type="button" aria-pressed="false" title="Show or hide the note names on the staff"><span class="aa" aria-hidden="true">Aa</span> <span id="labelsBtnText">Show labels</span></button>
+        <button id="refBtn" class="labels-toggle hidden" type="button" aria-pressed="true" title="Play a reference C before the mystery note"><span class="aa" aria-hidden="true">♪</span> <span id="refBtnText">Reference C</span></button>
+      </div>
+      <div class="staff-stage" id="stage">
+        <svg id="staffSvg" viewBox="0 0 360 222.5" role="img" aria-label="Musical staff: identify the written note" xmlns="http://www.w3.org/2000/svg">
+          <g aria-hidden="true">
+            <line class="staff-line" x1="32" y1="64" x2="316" y2="64"/>
+            <line class="staff-line" x1="32" y1="84" x2="316" y2="84"/>
+            <line class="staff-line" x1="32" y1="104" x2="316" y2="104"/>
+            <line class="staff-line" x1="32" y1="124" x2="316" y2="124"/>
+            <line class="staff-line" x1="32" y1="144" x2="316" y2="144"/>
+            <!-- A single staff opens with its clef, not with a barline: a left-hand barline is only drawn to join several staves. -->
+          </g>
+          <!-- Engraved musical glyph outlines derived from Noto Music (SIL OFL 1.1, Google).
+               Staff space = 20 units. Each clef is scaled so that its own staff space equals 20
+               and anchored on the line that it names. -->
+          <!-- G clef: the spiral is centered on the second line from the bottom (G4, y = 124). -->
+          <g id="trebleClef" class="engraved-clef" aria-hidden="true">
+            <path d="M314 801Q300 854 291.0 906.0Q282 958 282 1012Q282 1059 288.5 1100.5Q295 1142 307 1177Q320 1217 341.0 1252.5Q362 1288 385.5 1311.0Q409 1334 427 1334Q451 1334 493 1249Q514 1206 524.0 1156.0Q534 1106 534 1049Q534 978 515.0 907.5Q496 837 459.5 775.0Q423 713 372 666L407 498Q422 500 432.0 501.0Q442 502 447 502Q508 502 556.0 467.5Q604 433 632.5 377.0Q661 321 661 254Q661 177 621.5 115.5Q582 54 503 25Q508 8 532 -117Q538 -147 541.0 -164.5Q544 -182 545.0 -195.0Q546 -208 546 -225Q546 -275 521.5 -314.5Q497 -354 455.5 -376.0Q414 -398 363 -398Q311 -398 271.0 -378.5Q231 -359 208.0 -324.5Q185 -290 185 -245Q185 -197 211.5 -165.0Q238 -133 287 -133Q329 -133 355.5 -163.5Q382 -194 382 -236Q382 -272 357.0 -299.0Q332 -326 292 -326H282Q308 -365 364 -365Q433 -365 472.0 -320.0Q511 -275 511 -205Q511 -188 507.0 -159.5Q503 -131 493 -91Q483 -51 477.5 -25.0Q472 1 470 12Q436 2 390 2Q304 2 222 52Q142 102 96.0 184.0Q50 266 50 361Q50 451 91 530Q132 609 192.5 675.0Q253 741 314 801ZM341 826Q364 838 390.0 870.5Q416 903 440.0 945.0Q464 987 479.0 1029.5Q494 1072 494 1106Q494 1142 483.0 1163.0Q472 1184 445 1184Q421 1184 398.5 1162.0Q376 1140 358.5 1103.5Q341 1067 331.0 1022.0Q321 977 321 930Q321 898 327.5 872.0Q334 846 341 826ZM398 379Q371 373 347.0 353.5Q323 334 308.5 306.5Q294 279 294 248Q294 223 307.0 196.5Q320 170 339 154Q352 142 365 136Q380 129 380 123Q380 120 370 117Q332 126 301.5 151.0Q271 176 253.5 211.5Q236 247 236 287Q236 330 253.5 370.0Q271 410 302.5 442.0Q334 474 374 490L345 641Q229 547 174.5 456.5Q120 366 120 277Q120 212 154.0 156.0Q188 100 247.0 65.5Q306 31 380 31Q400 31 420.5 35.0Q441 39 464 45ZM495 55Q593 97 593 227Q593 270 571.0 305.5Q549 341 512.0 362.0Q475 383 429 383Z" transform="translate(46 144.2) scale(.08 -.08)"/>
+          </g>
+          <!-- F clef: the two dots sit in the spaces either side of the fourth line (F3, y = 84). -->
+          <g id="bassClef" class="engraved-clef hidden" aria-hidden="true">
+            <path d="M50 123Q216 231 288 301Q336 348 373.0 408.5Q410 469 431.5 536.0Q453 603 453 669Q453 728 435.0 773.5Q417 819 383.0 845.0Q349 871 302 871Q284 871 264.5 867.0Q245 863 224 855Q181 839 158.0 813.5Q135 788 135 765Q135 756 143.0 752.0Q151 748 158 748Q168 748 183 752Q190 754 196.5 755.0Q203 756 210 756Q248 756 272.0 733.5Q296 711 296 674Q296 638 266.0 612.0Q236 586 195 586Q146 586 111.0 617.0Q76 648 76 697Q76 756 109.0 802.0Q142 848 198.5 874.0Q255 900 324 900Q400 900 460.0 867.0Q520 834 555.5 776.5Q591 719 591 646Q591 551 538 464Q511 419 476.5 379.0Q442 339 389.0 297.5Q336 256 256.0 208.0Q176 160 57 101ZM687 809Q710 809 726.0 793.0Q742 777 742 754Q742 731 726.0 715.5Q710 700 687 700Q664 700 648.0 715.5Q632 731 632 754Q632 777 648.0 793.0Q664 809 687 809ZM687 589Q710 589 726.0 573.0Q742 557 742 534Q742 511 726.0 495.5Q710 480 687 480Q664 480 648.0 495.5Q632 511 632 534Q632 557 648.0 573.0Q664 589 687 589Z" transform="translate(48 142.55) scale(.0909 -.0909)"/>
+          </g>
+          <g id="labelsLayer" aria-hidden="true"></g>
+          <g id="ledgerLayer" aria-hidden="true"></g>
+          <g id="noteLayer" aria-hidden="true"></g>
+        </svg>
+        <div class="ear-stage" id="earStage">
+          <button class="ear-play" id="playBtn" type="button" aria-label="Play the note">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.6v14.8a1 1 0 0 0 1.5.86l12.4-7.4a1 1 0 0 0 0-1.72L8.5 3.74A1 1 0 0 0 7 4.6Z"/></svg>
+          </button>
+          <div class="ear-caption" id="earCaption" aria-hidden="true">Tap to hear the note</div>
+        </div>
+        <div class="feedback-reveal" id="feedbackReveal" aria-hidden="true">
+          <div class="feedback-reveal-inner">
+            <span class="feedback-mark" id="revealMark">✓</span>
+            <strong class="feedback-title" id="revealTitle">Correct</strong>
+            <span class="feedback-ornament" aria-hidden="true"></span>
+            <span class="feedback-subtitle" id="revealSubtitle">+12 POINTS</span>
+            <span class="feedback-note" id="revealNote">Beautifully read.</span>
+          </div>
+        </div>
+      </div>
+      <div class="guide" id="guide" aria-live="polite">
+        <div class="guide-note" id="guideTarget"></div>
+        <p class="guide-rule" id="guideRule"></p>
+      </div>
+      <div class="feedback" id="feedback" role="status" aria-live="polite" aria-atomic="true">Which note is written on the staff?</div>
+    </section>
+
+    <section class="answer-section" id="answerSection" aria-label="Choose an answer">
+      <div class="answer-heading">
+        <h2 id="answerTitle">NAME THE WRITTEN NOTE</h2>
+        <span class="midi-chip hidden" id="midiChip" role="status"><i aria-hidden="true"></i>MIDI</span>
+        <span class="keyboard-help" id="keyboardHelp">Keys: C–B · 1–7</span>
+      </div>
+      <div class="answers k7" id="answers"></div>
+    </section>
+    <div class="bottom-hint" id="bottomHint"></div>
+    <div class="footer" aria-hidden="true"><span></span> DISCIPLINE BECOMES ART <span></span></div>
+  </main>
+
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+    <div class="dialog-box">
+      <div class="dialog-top">
+        <div><div class="dialog-kicker" id="settingsKicker">SIGHT-READING</div><h2 id="settingsTitle">Practice settings</h2></div>
+        <button type="button" class="close-btn" data-close="settingsDialog" aria-label="Close settings">×</button>
+      </div>
+      <p class="dialog-copy" id="settingsCopy"></p>
+      <div class="field" id="clefField">
+        <div class="field-label">THE CLEF</div>
+        <div class="pick-row" id="clefChoices" role="group" aria-label="Musical clef">
+          <button class="pick" data-clef="treble" type="button" aria-pressed="true">Treble <span>G clef</span></button>
+          <button class="pick" data-clef="bass" type="button" aria-pressed="false">Bass <span>F clef</span></button>
+          <button class="pick" data-clef="both" type="button" aria-pressed="false">Both <span>Mixed</span></button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">THE CHALLENGE</div>
+        <div class="pick-row" id="difficultyChoices" role="group" aria-label="Difficulty">
+          <button class="pick" data-difficulty="notes" data-read="7 note names" data-ear="7 natural notes" type="button" aria-pressed="true">Foundations <span></span></button>
+          <button class="pick" data-difficulty="accidentals" data-read="♯ ♭ ♮" data-ear="All 12 notes" type="button" aria-pressed="false">Accidentals <span></span></button>
+          <button class="pick" data-difficulty="mastery" data-read="Ledger lines" data-ear="3 octaves" type="button" aria-pressed="false">Virtuoso <span></span></button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">THE INSTRUMENT</div>
+        <div class="pick-row" id="timbreChoices" role="group" aria-label="Instrument sound"></div>
+        <p class="field-note">Tap an instrument to hear it. Your choice is kept at once.</p>
+      </div>
+      <div class="field">
+        <div class="field-label">NOTE NAMES</div>
+        <div class="pick-row two" id="namingChoices" role="group" aria-label="Note names">
+          <button class="pick" data-naming="letters" type="button" aria-pressed="true">C · D · E <span>Letter names</span></button>
+          <button class="pick" data-naming="solfege" type="button" aria-pressed="false">Do · Re · Mi <span>Solfège (fixed Do)</span></button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">MIDI KEYBOARD</div>
+        <div class="midi-panel">
+          <div class="midi-status" id="midiStatus" role="status"><i class="midi-dot" aria-hidden="true"></i><span id="midiStatusText"></span></div>
+          <button id="midiBtn" type="button" class="secondary-btn">Connect MIDI keyboard</button>
+        </div>
+        <div class="pick-row two" id="octaveChoices" role="group" aria-label="MIDI octave matching">
+          <button class="pick" data-octave="any" type="button" aria-pressed="true">Any octave <span>The right key name</span></button>
+          <button class="pick" data-octave="exact" type="button" aria-pressed="false">Exact octave <span>The very key written</span></button>
+        </div>
+      </div>
+      <p class="dialog-tip" id="settingsTip"></p>
+      <details class="license-disclosure"><summary>Engraving credits &amp; license</summary><p>Musical glyph outlines are derived from Noto Music (© 2022 The Noto Project Authors), under the SIL Open Font License 1.1.</p><pre>Copyright 2022 The Noto Project Authors (https://github.com/notofonts/music)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+https://scripts.sil.org/OFL
+
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+&quot;Font Software&quot; refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+&quot;Reserved Font Name&quot; refers to any names specified as such after the
+copyright statement(s).
+
+&quot;Original Version&quot; refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+&quot;Modified Version&quot; refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+&quot;Author&quot; refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION &amp; CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.</pre></details>
+      <div class="dialog-actions"><button id="applySettings" type="button" class="primary-btn">BEGIN A NEW RECITAL</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="resultsDialog" aria-labelledby="resultsTitle">
+    <div class="dialog-box results-content">
+      <div class="results-medal" aria-hidden="true">✦</div>
+      <div class="dialog-kicker" id="resultsKicker">RECITAL COMPLETE</div>
+      <h2 id="resultsTitle">Beautifully played.</h2>
+      <p class="dialog-copy" id="resultsSubtitle">A little more practice makes every note familiar.</p>
+      <div class="results-score"><span id="resultsRight">0</span><small> / 12</small></div>
+      <div class="results-breakdown">
+        <div><strong id="resultsAccuracy">0%</strong><span>Accuracy</span></div>
+        <div><strong id="resultsPoints">0</strong><span>Points earned</span></div>
+        <div><strong id="resultsBest">0</strong><span>Best recital</span></div>
+      </div>
+      <button id="replayBtn" type="button" class="primary-btn">PLAY ANOTHER RECITAL ✦</button>
+      <button id="changeModeBtn" type="button" class="secondary-btn">Change practice settings</button>
+    </div>
+  </dialog>
+
+  <script>
+    'use strict';
+    (() => {
+      // Start only where everything the game relies on exists (Chrome/Edge 88+, Firefox 98+, Safari 15.4+).
+      // Anywhere else nothing half-works: the page keeps its note asking for a current browser.
+      const modern = typeof window.Element.prototype.replaceChildren === 'function' &&
+        typeof window.HTMLDialogElement === 'function' && typeof window.HTMLDialogElement.prototype.showModal === 'function' &&
+        !!(window.CSS && window.CSS.supports && window.CSS.supports('inset', '0') && window.CSS.supports('aspect-ratio', '1'));
+      if (!modern) return;
+      document.documentElement.classList.add('ready');
+      const $ = id => document.getElementById(id);
+      const PHI = 1.61803398875;
+      const NAMES = ['C','D','E','F','G','A','B'];
+      const SOLFEGE = ['Do','Re','Mi','Fa','Sol','La','Si'];
+      const SEMITONES = [0,2,4,5,7,9,11];
+      const GLYPH = {'': '', '#': '♯', 'b': '♭', 'n': '♮'};
+      const ACC_NAME = {'': '', '#': ' sharp', 'b': ' flat', 'n': ' natural'};
+      // The twelve keys of one octave. By ear a black key has two equally right names,
+      // so it is spelled with a sharp and shows its flat twin underneath.
+      const CHROMA = [['C',''],['C','#'],['D',''],['D','#'],['E',''],['F',''],['F','#'],['G',''],['G','#'],['A',''],['A','#'],['B','']];
+      const FLAT_TWIN = {1:'D', 3:'E', 6:'G', 8:'A', 10:'B'};
+      const SESSION_LENGTH = 12;
+      const READ_RANGE = {notes:[0,8], accidentals:[-2,10], mastery:[-4,12]};      // staff steps from the bottom line
+      const EAR_RANGE = {notes:[60,71], accidentals:[60,71], mastery:[48,83]};      // MIDI note numbers
+      const DIFFICULTY_LABEL = {
+        read:{notes:'Notes only', accidentals:'Accidentals', mastery:'Virtuoso'},
+        ear:{notes:'7 notes', accidentals:'12 notes', mastery:'3 octaves'}
+      };
+      const REFERENCE_MIDI = 60, REFERENCE_GAP = .76;                               // middle C, then the mystery note
+      const STAGE_MIN = 123, STAGE_MAX_WIDTH = 510;
+      // Staff geometry inside the 360 × 222.5 viewBox (a golden rectangle).
+      const STAFF_BOTTOM = 144, STAFF_MIDDLE = 104, STEP = 10;
+      const NOTE_X = 32 + (316 - 32) / PHI;                                         // golden section of the staff
+      const compactNumber = new Intl.NumberFormat('en-US', {notation:'compact', maximumFractionDigits:1});
+      const displayCount = (n, threshold=10000) => n >= threshold ? compactNumber.format(n) : n.toLocaleString('en-US');
+      // ══ AUDIO ENGINE:BEGIN ═══════════════════════════════════════════════
+      // Twelve instruments, each synthesized in real time from sine partials, FM pairs or harmonic
+      // waves. No recordings are used, so the game stays one small offline file.
+      // Rules every voice obeys, because this is a pitch-teaching tool:
+      //   · its first oscillator is exactly the written pitch, and nothing sounds below it;
+      //   · it starts from silence and is damped before the next sound begins (no clicks, no blur);
+      //   · its level is balanced against the others, well inside the output limiter.
+      // The block between the BEGIN/END marks depends on nothing else in the program.
+      const TIMBRES = [
+        ['grand', 'Grand Piano', 'Concert hall'], ['felt', 'Felt Piano', 'Soft and warm'], ['epiano', 'Electric Piano', 'Tine and bell'],
+        ['harpsichord', 'Harpsichord', 'Bright pluck'], ['organ', 'Pipe Organ', 'Steady tone'], ['vibes', 'Vibraphone', 'Metal bars'],
+        ['marimba', 'Marimba', 'Wooden bars'], ['celesta', 'Celesta', 'Soft bells'], ['guitar', 'Nylon Guitar', 'Fingerstyle'],
+        ['harp', 'Harp', 'Open strings'], ['flute', 'Flute', 'Light vibrato'], ['clarinet', 'Clarinet', 'Dark reed']
+      ];
+      // Loudness balance, measured by rendering every instrument offline (see the audit): each one
+      // lands at the same perceived level for a middle-register note.
+      const LEVEL = {grand:.37, felt:.4, epiano:.48, harpsichord:1.24, organ:.8, vibes:.4, marimba:.62, celesta:.47, guitar:.335, harp:.42, flute:.66, clarinet:.66};
+      const audioCache = new WeakMap();           // per AudioContext: the noise buffer and the harmonic waves
+      const liveVoices = [];
+      const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+      // 0 from about B3 upward, rising to 1 at C2. Low notes get stronger overtones — as on real
+      // instruments — so that they remain audible on a phone speaker, which barely reproduces
+      // anything under 300 Hz. The overtones belong to the same note: the pitch heard is unchanged.
+      const lowLift = f => clamp((240 - f) / 175, 0, 1);
+      function cacheFor(ctx) {
+        let c = audioCache.get(ctx);
+        if (!c) {c = {waves:{}, noise:null}; audioCache.set(ctx, c);}
+        return c;
+      }
+      function noiseBuffer(ctx) {
+        const c = cacheFor(ctx);
+        if (!c.noise) {
+          const length = Math.floor(ctx.sampleRate * .37), buffer = ctx.createBuffer(1, length, ctx.sampleRate), data = buffer.getChannelData(0);
+          let seed = 22222;                         // fixed seed: every device hears the same breath and hammer noise
+          for (let i = 0; i < length; i++) {seed = (seed * 16807) % 2147483647; data[i] = seed / 1073741823.5 - 1;}
+          c.noise = buffer;
+        }
+        return c.noise;
+      }
+      // A wave made of `count` harmonics whose strengths come from amp(k); normalized so its peak never exceeds 1.
+      function harmonicWave(ctx, key, count, amp, cosine=false) {
+        const c = cacheFor(ctx), id = key + count;
+        if (!c.waves[id]) {
+          const real = new Float32Array(count + 1), imag = new Float32Array(count + 1);
+          let sum = 0;
+          for (let k = 1; k <= count; k++) sum += Math.abs(amp(k));
+          for (let k = 1; k <= count; k++) (cosine ? real : imag)[k] = amp(k) / (sum || 1);
+          c.waves[id] = ctx.createPeriodicWave(real, imag, {disableNormalization:true});
+        }
+        return c.waves[id];
+      }
+      function openVoice(ctx, bus, when, level) {
+        const out = ctx.createGain();
+        out.gain.value = level;
+        out.gain.setValueAtTime(level, when);
+        out.connect(bus);
+        return {ctx, out, t:when, sources:[], nodes:[out]};
+      }
+      // One oscillator with its own envelope: silence → peak (linear, `attack`) → exponential fall
+      // toward peak × floor with time constant `tau` (no `tau`: the tone holds, as on an organ).
+      function partial(v, o) {
+        if (!(o.f > 20) || o.f > v.ctx.sampleRate * .45 || !(o.peak > 1e-4)) return null;
+        const osc = v.ctx.createOscillator(), amp = v.ctx.createGain();
+        if (o.wave) osc.setPeriodicWave(o.wave); else osc.type = 'sine';
+        osc.frequency.setValueAtTime(o.f, v.t);
+        if (o.cents) osc.detune.setValueAtTime(o.cents, v.t);
+        amp.gain.setValueAtTime(0, v.t);
+        amp.gain.linearRampToValueAtTime(o.peak, v.t + o.attack);
+        if (o.tau) amp.gain.setTargetAtTime(o.peak * (o.floor || 0), v.t + o.attack, o.tau);
+        osc.connect(amp); amp.connect(o.to || v.out);
+        v.sources.push(osc); v.nodes.push(amp);
+        return osc;
+      }
+      // Frequency modulation: a carrier on the written pitch, colored by a modulator whose depth
+      // (the index) relaxes over time. The modulator is a cosine, which keeps the result almost free of DC;
+      // what remains from sampling is removed by the instrument's own DC blocker.
+      function fmPair(v, o) {
+        const carrier = partial(v, {f:o.f, peak:o.peak, attack:o.attack, tau:o.tau, to:o.to});
+        if (!carrier) return;
+        const modulator = v.ctx.createOscillator(), depth = v.ctx.createGain();
+        modulator.setPeriodicWave(harmonicWave(v.ctx, 'cosine', 1, () => 1, true));
+        modulator.frequency.setValueAtTime(o.modulator, v.t);
+        depth.gain.setValueAtTime(o.index * o.modulator, v.t);
+        depth.gain.setTargetAtTime(o.settle * o.modulator, v.t, o.indexTau);
+        modulator.connect(depth); depth.connect(carrier.frequency);
+        v.sources.push(modulator); v.nodes.push(depth);
+      }
+      // A low-pass whose cutoff falls as the tone settles, the way a struck string loses its brightness.
+      function shade(v, from, to, tau) {
+        const filter = v.ctx.createBiquadFilter(), top = v.ctx.sampleRate * .45;
+        filter.type = 'lowpass'; filter.Q.setValueAtTime(.6, v.t);
+        filter.frequency.setValueAtTime(Math.min(top, from), v.t);
+        filter.frequency.setTargetAtTime(Math.min(top, to), v.t, tau);
+        filter.connect(v.out); v.nodes.push(filter);
+        return filter;
+      }
+      // Filtered noise: the thump of a hammer, the click of a plectrum, the breath in a pipe.
+      function burst(v, o) {
+        const source = v.ctx.createBufferSource(), filter = v.ctx.createBiquadFilter(), amp = v.ctx.createGain(), attack = o.attack || .002;
+        source.buffer = noiseBuffer(v.ctx); source.loop = true;
+        filter.type = o.type || 'lowpass'; filter.Q.setValueAtTime(o.q || .7, v.t);
+        filter.frequency.setValueAtTime(Math.min(v.ctx.sampleRate * .45, o.f), v.t);
+        amp.gain.setValueAtTime(0, v.t);
+        amp.gain.linearRampToValueAtTime(o.peak, v.t + attack);
+        amp.gain.setTargetAtTime(o.peak * (o.floor || 0), v.t + attack, o.tau);
+        source.connect(filter); filter.connect(amp); amp.connect(o.to || v.out);
+        v.sources.push(source); v.nodes.push(filter, amp);
+      }
+      // Starts everything together; after `hold` the damper closes with time constant `release`.
+      function closeVoice(v, hold, release) {
+        const now = v.ctx.currentTime, off = v.t + hold, end = off + release * 7 + .03;
+        v.out.gain.setTargetAtTime(0, off, release);
+        for (const source of v.sources) {source.start(v.t); source.stop(end);}
+        v.end = end;
+        const forget = () => {
+          for (const node of v.nodes) {try {node.disconnect();} catch (e) {}}
+          const i = liveVoices.indexOf(v);
+          if (i >= 0) liveVoices.splice(i, 1);
+        };
+        if (v.sources.length) v.sources[0].onended = forget; else forget();
+        for (let i = liveVoices.length - 1; i >= 0; i--) if (liveVoices[i].ctx !== v.ctx || liveVoices[i].end < now - 1) liveVoices.splice(i, 1);
+        if (v.sources.length) liveVoices.push(v);
+      }
+      // Fades out, within a few hundredths of a second, every note that is sounding or still to come.
+      function hush(ctx) {
+        const now = ctx.currentTime;
+        for (const v of liveVoices) if (v.ctx === ctx && !v.hushed) {
+          v.hushed = true;
+          v.out.gain.cancelScheduledValues(now);
+          v.out.gain.setTargetAtTime(0, now, .03);
+          // Once the fade is over the oscillators are released instead of running on in silence:
+          // tapping quickly through sounds must never pile up work for the audio thread.
+          if (v.end > now + .3) {
+            v.end = now + .3;
+            for (const source of v.sources) {try {source.stop(v.end);} catch (e) {}}
+          }
+        }
+      }
+      // Each builder adds its sources to the voice and returns the time constant of its damper.
+      // f: written pitch in Hz · vel: 0–1, how hard the note is played (louder is also brighter).
+      const INSTRUMENTS = {
+        grand(v, f, vel) {
+          // Stiff steel strings: partials run slightly sharp of the harmonic series, the upper ones die first,
+          // and the lowest two are doubled a hair apart, like the strings of one key.
+          const r = f / 261.63, lift = lowLift(f), stiff = 1.1e-4 * Math.pow(r, .9), count = Math.min(12, Math.floor(v.ctx.sampleRate * .42 / f));
+          const tau1 = clamp(1.5 * Math.pow(r, -.42), .55, 3.2), tone = shade(v, f * 18, f * 5.5, .45);
+          for (let k = 1; k <= count; k++) {
+            const pf = f * k * Math.sqrt((1 + stiff * k * k) / (1 + stiff));
+            const peak = .5 / (1 + .3 * lift) * Math.pow(k, -1.1 + .18 * lift) * Math.exp(-.09 * (k - 1) * Math.sqrt(r)) * Math.pow(vel, 1 + .22 * (k - 1));
+            const tau = tau1 / (1 + .24 * (k - 1));
+            if (k <= 2) {
+              partial(v, {f:pf, peak:peak * .56, attack:.004, tau, to:tone});
+              partial(v, {f:pf, peak:peak * .5, attack:.004, tau:tau * .9, cents:k === 1 ? 1.4 : -1.1, to:tone});
+            } else partial(v, {f:pf, peak, attack:.003, tau, to:tone});
+          }
+          burst(v, {f:700 + f * 1.2, peak:.09 * vel, tau:.012, to:tone});
+          return .085;
+        },
+        felt(v, f, vel) {
+          // An upright with a felt strip between hammers and strings: few overtones, a slow soft attack.
+          const r = f / 261.63, lift = lowLift(f), count = Math.min(7 + Math.round(3 * lift), Math.floor(v.ctx.sampleRate * .42 / f));
+          const tau1 = clamp(1.15 * Math.pow(r, -.38), .5, 2.6), tone = shade(v, f * (7 + 9 * lift), f * (3.2 + 6 * lift), .3);
+          for (let k = 1; k <= count; k++) {
+            const peak = .62 / (1 + .75 * lift) * Math.pow(k, -1.9 + .88 * lift) * Math.pow(vel, 1 + .3 * (k - 1)), tau = tau1 / (1 + .3 * (k - 1));
+            partial(v, {f:f * k, peak:k === 1 ? peak * .58 : peak, attack:.012, tau, to:tone});
+            if (k === 1) partial(v, {f, peak:peak * .46, attack:.012, tau:tau * .92, cents:1.8, to:tone});
+          }
+          burst(v, {f:420, peak:.05 * vel, tau:.02, to:tone});
+          return .12;
+        },
+        epiano(v, f, vel) {
+          // A tine struck by a hammer: a warm body that barks when played hard, and a short bell on top.
+          const r = f / 261.63, tau = clamp(1.5 * Math.pow(r, -.3), .6, 2.6), block = v.ctx.createBiquadFilter();
+          block.type = 'highpass'; block.frequency.setValueAtTime(20, v.t); block.Q.setValueAtTime(.707, v.t);
+          block.connect(v.out); v.nodes.push(block);
+          const lift = lowLift(f), trim = 1 / (1 + .35 * lift);
+          // The index stays under 1.7, where the written pitch remains the firm base of the spectrum.
+          fmPair(v, {f, modulator:f, index:Math.min(1.7, 1.5 * vel * clamp(Math.pow(r, -.25), .65, 1.35)), settle:.22, indexTau:.32, peak:.5 * vel * trim, attack:.004, tau, to:block});
+          if (f * 15 < v.ctx.sampleRate * .45) fmPair(v, {f, modulator:f * 14, index:.32 * vel, settle:0, indexTau:.06, peak:.15 * vel * trim, attack:.002, tau:.2, to:block});
+          for (let k = 2; k <= 6; k++) partial(v, {f:f * k, peak:.3 * lift * vel * trim / Math.sqrt(k), attack:.004, tau:tau * .7, to:block});
+          return .11;
+        },
+        harpsichord(v, f, vel) {
+          // A quill plucks the string close to its end: every harmonic is strong, and the tone cannot be played louder or softer.
+          const r = f / 261.63, count = Math.min(26, Math.floor(v.ctx.sampleRate * .45 / f));
+          const wave = harmonicWave(v.ctx, 'harpsichord', count, k => Math.abs(Math.sin(k * Math.PI * .11)) / Math.pow(k, .75));
+          const tone = shade(v, f * 26, f * 7, .22);
+          partial(v, {f, wave, peak:.42 * (.7 + .3 * vel), attack:.0025, tau:clamp(.8 * Math.pow(r, -.35), .35, 1.8), to:tone});
+          burst(v, {f:4200, peak:.07, tau:.004, to:tone});
+          return .06;
+        },
+        organ(v, f, vel) {
+          // A principal chorus of pipes (8′ 4′ 2⅔′ 2′ …): the tone speaks with a short chiff and then holds perfectly steady.
+          const stops = [1, .5, .3, .34, .1, .16, .04, .14], count = Math.min(stops.length, Math.floor(v.ctx.sampleRate * .45 / f));
+          const step = Math.round(lowLift(f) * 4);                                 // five shades of brightness, cached as five waves
+          partial(v, {f, wave:harmonicWave(v.ctx, 'organ' + step + '-', count, k => stops[k - 1] * (k === 1 ? 1 : 1 + .45 * step)), peak:.36 * (.75 + .25 * vel), attack:.03});
+          burst(v, {type:'bandpass', f:f * 3, q:1.2, peak:.03, tau:.025});
+          return .07;
+        },
+        vibes(v, f, vel) {
+          // Aluminum bars tuned so that their overtones sit two octaves (4×) and three octaves and a third (10×) above.
+          const r = f / 261.63, lift = lowLift(f), ring = clamp(Math.pow(r, -.25), .6, 1.6);
+          for (const [ratio, peak, tau] of [[1, .6, 2.2], [4, .13 * (1 + 1.6 * lift), .7 + .5 * lift], [10, .03 * (1 + 2 * lift), .16]])
+            partial(v, {f:f * ratio, peak:peak * vel * (ratio === 1 ? 1 : vel), attack:.004, tau:tau * ring});
+          burst(v, {f:1400, peak:.04 * vel, tau:.006});
+          return .2;
+        },
+        marimba(v, f, vel) {
+          // Rosewood bars over resonators: the same tuning as the vibraphone, but the wood swallows the sound quickly.
+          const r = f / 261.63, lift = lowLift(f), ring = clamp(Math.pow(r, -.55), .4, 2.6);
+          for (const [ratio, peak, tau] of [[1, .62, .4 * ring], [4, .2 * (1 + 1.3 * lift), .11 * Math.sqrt(ring) * (1 + lift)], [10, .035 * (1 + 2 * lift), .04 + .05 * lift]])
+            partial(v, {f:f * ratio, peak:peak / (1 + .45 * lift) * vel * (ratio === 1 ? 1 : vel), attack:.002, tau});
+          burst(v, {f:900, peak:.1 * vel, tau:.008});
+          return .08;
+        },
+        celesta(v, f, vel) {
+          // Small steel plates struck by felt hammers: almost a pure tone, with a faint bell overtone and a tiny tick.
+          const r = f / 261.63, lift = lowLift(f), ring = clamp(Math.pow(r, -.3), .55, 1.7);
+          for (const [ratio, peak, tau] of [[1, .6, 1.25], [2, .06 * (1 + 5 * lift), .45 + .3 * lift], [2.76, .045, .28], [4, .22 * lift, .5], [5.4, .03, .12], [6, .12 * lift, .3]])
+            partial(v, {f:f * ratio, peak:peak / (1 + .3 * lift) * vel * (ratio === 1 ? 1 : vel), attack:.003, tau:tau * ring});
+          burst(v, {type:'highpass', f:3000, peak:.035 * vel, tau:.003});
+          return .18;
+        },
+        guitar(v, f, vel) {
+          // A nylon string plucked about a sixth of the way along: the pluck point shapes which harmonics speak.
+          const r = f / 261.63, lift = lowLift(f), count = Math.min(11, Math.floor(v.ctx.sampleRate * .42 / f));
+          const tau1 = clamp(1.2 * Math.pow(r, -.45), .4, 2.4), tone = shade(v, f * 14, f * (4.5 + 4 * lift), .2);
+          for (let k = 1; k <= count; k++)
+            partial(v, {f:f * k, peak:.9 / (1 + .52 * lift) * Math.abs(Math.sin(k * Math.PI * .17)) / Math.pow(k, 1.35 - .42 * lift) * Math.pow(vel, 1 + .15 * (k - 1)), attack:.0025, tau:tau1 / (1 + .42 * (k - 1)), to:tone});
+          burst(v, {f:2400, peak:.06 * vel, tau:.004, to:tone});
+          return .1;
+        },
+        harp(v, f, vel) {
+          // A gut string plucked with the fingertip nearer the middle: round, with few high harmonics, and it rings on.
+          const r = f / 261.63, lift = lowLift(f), count = Math.min(8 + Math.round(2 * lift), Math.floor(v.ctx.sampleRate * .42 / f));
+          const tau1 = clamp(1.8 * Math.pow(r, -.5), .5, 3.2), tone = shade(v, f * (9 + 7 * lift), f * (4 + 6 * lift), .3);
+          for (let k = 1; k <= count; k++)
+            partial(v, {f:f * k, peak:.62 / (1 + .8 * lift) * Math.abs(Math.sin(k * Math.PI * .36)) / Math.pow(k, 1.9 - .9 * lift) * Math.pow(vel, 1 + .2 * (k - 1)), attack:.003, tau:tau1 / (1 + .3 * (k - 1)), to:tone});
+          burst(v, {f:1500, peak:.035 * vel, tau:.005, to:tone});
+          return .22;
+        },
+        flute(v, f, vel) {
+          // Air across an open pipe: nearly a pure tone, a little breath, and a light vibrato once the note has spoken.
+          // Below the real flute's range the pipe is given more harmonics, like a low organ flue, so it still carries.
+          const strengths = [1, .38, .1, .05, .018, .008], step = Math.round(lowLift(f) * 4);
+          const count = Math.min(step ? 12 : strengths.length, Math.floor(v.ctx.sampleRate * .45 / f));
+          const pipe = partial(v, {f, wave:harmonicWave(v.ctx, 'flute' + step + '-', count, k => k === 1 ? 1 : Math.max(strengths[k - 1] || 0, .16 * step / Math.sqrt(k))), peak:.4 * (.7 + .3 * vel), attack:.07});
+          if (pipe) {
+            // ±6 cents, swinging evenly around the written pitch, so the note's center never moves.
+            const vibrato = v.ctx.createOscillator(), depth = v.ctx.createGain();
+            vibrato.frequency.setValueAtTime(5.2, v.t);
+            depth.gain.setValueAtTime(0, v.t);
+            depth.gain.setTargetAtTime(6, v.t + .28, .18);
+            vibrato.connect(depth); depth.connect(pipe.detune);
+            v.sources.push(vibrato); v.nodes.push(depth);
+          }
+          burst(v, {type:'bandpass', f:clamp(f * 3, 900, 5000), q:.9, peak:.03, attack:.03, tau:.08, floor:.3});
+          return .07;
+        },
+        clarinet(v, f, vel) {
+          // A closed cylindrical pipe favors the odd harmonics (1, 3, 5, 7…), which gives the hollow, dark color.
+          const strengths = [1, .03, .5, .04, .24, .03, .12, .02, .07], count = Math.min(strengths.length, Math.floor(v.ctx.sampleRate * .45 / f));
+          const tone = shade(v, f * 10, f * 10, 1);
+          const step = Math.round(lowLift(f) * 4);
+          partial(v, {f, wave:harmonicWave(v.ctx, 'clarinet' + step + '-', count, k => strengths[k - 1] * (k === 1 ? 1 : 1 + .2 * step)), peak:.36 * (.7 + .3 * vel), attack:.045, to:tone});
+          burst(v, {type:'bandpass', f:clamp(f * 4, 1200, 5000), q:.8, peak:.012, attack:.03, tau:.1, floor:.4, to:tone});
+          return .06;
+        }
+      };
+      // Plays one note. hold: seconds before the damper falls · damp: upper limit for the damper's
+      // time constant (the reference tone is cut short so that it never overlaps the mystery note).
+      function playNote(ctx, bus, timbre, freq, when, velocity=.9, hold=1.15, damp=1) {
+        const id = INSTRUMENTS[timbre] ? timbre : 'grand';
+        const v = openVoice(ctx, bus, when, LEVEL[id]);
+        closeVoice(v, hold, Math.min(INSTRUMENTS[id](v, freq, clamp(velocity, .1, 1)), damp));
+      }
+      // Output chain: volume → gentle compressor → ceiling. The ceiling is exactly transparent up to
+      // 0.6 of full scale and bends everything above it under 1.0, so that no combination of notes
+      // can ever reach the hard clipping of the device.
+      function makeOutputBus(ctx, audible) {
+        const gain = ctx.createGain(), limiter = ctx.createDynamicsCompressor(), half = ctx.createGain(), ceiling = ctx.createWaveShaper();
+        limiter.threshold.setValueAtTime(-16, ctx.currentTime);
+        limiter.knee.setValueAtTime(10, ctx.currentTime);
+        limiter.ratio.setValueAtTime(3, ctx.currentTime);
+        limiter.attack.setValueAtTime(.006, ctx.currentTime);
+        limiter.release.setValueAtTime(.19, ctx.currentTime);
+        const points = 4097, curve = new Float32Array(points), knee = .6;
+        for (let i = 0; i < points; i++) {
+          const x = (i / (points - 1) * 2 - 1) * 2, a = Math.abs(x);            // the curve spans inputs from −2 to +2
+          curve[i] = Math.sign(x) * (a <= knee ? a : knee + (.98 - knee) * Math.tanh((a - knee) / (.98 - knee)));
+        }
+        ceiling.curve = curve;
+        half.gain.value = .5;
+        gain.gain.value = audible ? .66 : 0;
+        gain.connect(limiter); limiter.connect(half); half.connect(ceiling); ceiling.connect(ctx.destination);
+        return gain;
+      }
+      // Interface sounds (the celebration chime and the gentle error cue) keep one fixed, quiet
+      // voice of their own, so they are never mistaken for the instrument playing the lesson note.
+      function schedulePartial(ctx, bus, freq, start, peak, decay, attack=.012) {
+        if (freq >= ctx.sampleRate * .44 || freq <= 0 || peak <= 0) return;
+        const osc = ctx.createOscillator(), amp = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.setValueAtTime(freq, start);
+        amp.gain.setValueAtTime(.00001, start);
+        amp.gain.exponentialRampToValueAtTime(Math.max(.00002, peak), start + attack);
+        amp.gain.exponentialRampToValueAtTime(.00001, start + Math.max(decay, attack + .04));
+        osc.connect(amp); amp.connect(bus);
+        osc.onended = () => {osc.disconnect(); amp.disconnect();};
+        osc.start(start); osc.stop(start + decay + .026);
+      }
+      function playCrystal(ctx, bus, freq, when, intensity=1) {
+        // A warm, brief harp/bell note, deliberately softer than the lesson tone.
+        const gains = [.080,.028,.011], lives = [.43,.30,.20];
+        gains.forEach((g, i) => schedulePartial(ctx, bus, freq * (i + 1), when, g * intensity, lives[i], .009));
+      }
+      function playReward(ctx, bus, freq, when, streak, sameNoteOnly) {
+        // Root – perfect fifth – octave. The root is normalized for speaker range;
+        // this is a *separate* celebration chime, not the lesson pitch.
+        // In ear training the fifth is left out: the chime then holds only the note just named.
+        let root = freq;
+        while (root < 330) root *= 2;
+        while (root > 660) root /= 2;
+        const sparkle = streak >= 5 ? 1.07 : 1;
+        playCrystal(ctx, bus, root, when + .115, .79 * sparkle);
+        if (!sameNoteOnly) playCrystal(ctx, bus, root * 1.5, when + .245, .65 * sparkle);
+        playCrystal(ctx, bus, root * 2, when + (sameNoteOnly ? .245 : .375), .54 * sparkle);
+      }
+      function playGentleError(ctx, bus, when) {
+        // A restrained descending wooden cue, followed by the correct pitch.
+        playCrystal(ctx, bus, 392, when, .26);
+        playCrystal(ctx, bus, 349.23, when + .095, .18);
+      }
+      // ══ AUDIO ENGINE:END ═════════════════════════════════════════════════
+
+      const STORE = 'vesper_sight_reader_v1';
+      const defaultSave = () => ({score:0, xp:0, bestStreak:0, bestRecital:0, bestEar:0, attempts:0, correct:0, recitalNumber:1,
+        sound:true, labels:false, reference:true, mode:'read', clef:'treble', difficulty:'notes', naming:'letters', timbre:'grand',
+        midi:false, midiOctave:'any', weaknesses:{}, session:null});
+      function validInt(n) {return Number.isSafeInteger(n) && n >= 0 ? n : 0;}
+      function readSave() {
+        try {
+          const raw = JSON.parse(localStorage.getItem(STORE));
+          if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return defaultSave();
+          const d = {...defaultSave(), ...raw};
+          d.score = validInt(d.score); d.xp = validInt(d.xp); d.bestStreak = validInt(d.bestStreak);
+          d.bestRecital = Math.min(SESSION_LENGTH, validInt(d.bestRecital)); d.bestEar = Math.min(SESSION_LENGTH, validInt(d.bestEar));
+          d.attempts = validInt(d.attempts); d.correct = Math.min(d.attempts, validInt(d.correct));
+          d.recitalNumber = Math.max(1, validInt(d.recitalNumber) || 1);
+          d.sound = d.sound !== false; d.labels = !!d.labels; d.reference = d.reference !== false; d.midi = !!d.midi;
+          if (!['read','ear'].includes(d.mode)) d.mode = 'read';
+          if (!['treble','bass','both'].includes(d.clef)) d.clef = 'treble';
+          if (!['notes','accidentals','mastery'].includes(d.difficulty)) d.difficulty = 'notes';
+          if (!['letters','solfege'].includes(d.naming)) d.naming = 'letters';
+          if (!['any','exact'].includes(d.midiOctave)) d.midiOctave = 'any';
+          if (!TIMBRES.some(([id]) => id === d.timbre)) d.timbre = 'grand';
+          // Imported/stale save data must never crash question selection or stall the UI.
+          const clean = Object.create(null);
+          if (d.weaknesses && typeof d.weaknesses === 'object' && !Array.isArray(d.weaknesses)) {
+            for (const [k, v] of Object.entries(d.weaknesses)) {
+              const staff = /^(treble|bass)-(-?\d+)-(?:#|b|n)?$/.exec(k), ear = /^ear-(\d{2})$/.exec(k);
+              if ((staff && Number(staff[2]) >= -4 && Number(staff[2]) <= 12) || (ear && Number(ear[1]) >= 48 && Number(ear[1]) <= 83))
+                clean[k] = Math.min(10, validInt(v));
+            }
+          }
+          d.weaknesses = clean;
+          return d;
+        } catch (e) {return defaultSave();}
+      }
+      const save = readSave();
+      const state = {streak:0, runRight:0, runPoints:0, runAnswers:0, question:null, locked:false, hintUsed:false, phase:'question',
+        timeout:0, feedbackRemaining:0, feedbackDeadline:0, studyTimer:0, recent:[], clefCounts:{treble:0, bass:0},
+        earPlayed:false, earBusyUntil:0, earTimers:[], settingsReturnToResults:false, keyFocus:-1,
+        pending:{clef:save.clef, difficulty:save.difficulty, naming:save.naming, octave:save.midiOctave}};
+      const midi = {access:null, status:'idle', names:[]};
+      let audioCtx = null, outputGain = null, fitFrame = 0, fitTimer = 0;
+      const isEar = () => save.mode === 'ear';
+
+      // Vector glyphs extracted from open-source Noto Music (SIL OFL 1.1).
+      // Unlike Unicode clef/accidental text, these paths render identically offline on all platforms.
+      const ENGRAVING = {
+        notehead: 'M -13.7 3.9 C -13.0 -0.8 -5.4 -7.7 3.1 -8.8 C 10.7 -9.9 14.5 -6.0 13.8 -1.7 C 13.1 3.2 5.0 8.4 -3.3 9.0 C -11.3 9.6 -15.0 7.3 -13.7 3.9 Z',
+        '#': 'M502 82 404 39V-135H357V20L196 -58V-233H149V-77L51 -124V-46L149 0V245L51 198V276L149 323V482H196V342L357 420V590H404V439L502 485V408L404 361V116L502 160ZM357 97V342L196 264V19Z',
+        b: 'M51 524H88V179Q117 220 148.0 243.5Q179 267 209 267Q250 267 273.0 242.0Q296 217 296 173Q296 115 263 70Q241 40 208.0 19.0Q175 -2 138.5 -13.5Q102 -25 69 -25H51ZM88 141V3Q115 3 153 25Q192 47 215.5 83.0Q239 119 239 162Q239 191 230.5 206.5Q222 222 199 222Q171 222 140.5 198.0Q110 174 88 141Z',
+        n: 'M306 -213H259V-59L51 -156V404H98V264L306 361ZM259 19V261L98 186V-57Z'
+      };
+      // s: scale · anchor: the glyph's y that must sit on the note's line or space · right: glyph's right edge.
+      // A sharp and a natural are centered on the note; a flat is anchored on the center of its bowl,
+      // because its stem rises well above the pitch it alters.
+      const ACCIDENTAL = {
+        '#': {s:.056, anchor:178.5, right:502},
+        b:   {s:.074, anchor:121,   right:296},
+        n:   {s:.064, anchor:95.5,  right:306}
+      };
+      const SVGNS = 'http://www.w3.org/2000/svg';
+      const svgNode = (tag, attrs={}, content) => {
+        const n = document.createElementNS(SVGNS, tag);
+        for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
+        if (content !== undefined) n.textContent = content;
+        return n;
+      };
+
+      // ── Notes ────────────────────────────────────────────────────
+      function nameOf(letter) {return save.naming === 'solfege' ? SOLFEGE[NAMES.indexOf(letter)] : letter;}
+      function spelled(note) {return note.letter + GLYPH[note.acc];}                 // canonical spelling, independent of naming
+      function shown(note) {return nameOf(note.letter) + GLYPH[note.acc];}           // what the player reads
+      function spoken(note) {return nameOf(note.letter) + ACC_NAME[note.acc];}
+      function pitchClass(letter, acc) {return (SEMITONES[NAMES.indexOf(letter)] + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12;}
+      function midiOf(note) {return 12 * (note.octave + 1) + SEMITONES[NAMES.indexOf(note.letter)] + (note.acc === '#' ? 1 : note.acc === 'b' ? -1 : 0);}
+      function hzOf(midiNumber) {return 440 * Math.pow(2, (midiNumber - 69) / 12);}
+      function noteFromStep(clef, step, acc='') {
+        // Bottom line: E4 in the treble clef, G2 in the bass clef.
+        const idx = (clef === 'treble' ? 4 * 7 + 2 : 2 * 7 + 4) + step;
+        return {clef, step, octave:Math.floor(idx / 7), letter:NAMES[((idx % 7) + 7) % 7], acc};
+      }
+      function noteFromMidi(number) {
+        // Heard notes are written from middle C upward in the treble clef, below it in the bass clef.
+        const [letter, acc] = CHROMA[number % 12], octave = Math.floor(number / 12) - 1;
+        const clef = number >= 60 ? 'treble' : 'bass';
+        const idx = octave * 7 + NAMES.indexOf(letter);
+        return {clef, step:idx - (clef === 'treble' ? 30 : 18), octave, letter, acc, midi:number};
+      }
+      function twinOf(note) {
+        const letter = note.acc === '#' ? FLAT_TWIN[pitchClass(note.letter, note.acc)] : null;
+        return letter ? {letter, acc:'b', octave:note.octave} : null;
+      }
+      function keyFor(note) {return note.midi !== undefined ? 'ear-' + note.midi : note.clef + '-' + note.step + '-' + note.acc;}
+      function positionName(note) {
+        const s = note.step, ord = ['1st','2nd','3rd','4th','5th'];
+        let place;
+        if (s >= 0 && s <= 8) place = s % 2 === 0 ? ord[s / 2] + ' line' : ord[(s - 1) / 2] + ' space';
+        else if (s === -1) place = 'space below the staff';
+        else if (s === 9) place = 'space above the staff';
+        else {
+          const side = s < 0 ? 'below' : 'above', n = Math.floor((s < 0 ? -s : s - 8) / 2);
+          place = s % 2 === 0 ? ord[n - 1] + ' ledger line ' + side : side + ' the ' + ord[n - 1] + ' ledger line';
+        }
+        return place + (midiOf(note) === 60 && note.acc !== '#' && note.acc !== 'b' && note.letter === 'C' ? ' · Middle C' : '');
+      }
+      function answerName(note) {
+        const twin = note.midi !== undefined ? twinOf(note) : null;
+        return shown(note) + note.octave + (twin ? ' / ' + shown(twin) + twin.octave : '');
+      }
+      function shuffle(a) {const out = [...a]; for (let i = out.length - 1; i > 0; i--) {const j = Math.floor(Math.random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]];} return out;}
+      function weightedPick(candidates) {
+        const total = candidates.reduce((sum, c) => sum + c.weight, 0);
+        let roll = Math.random() * total;
+        for (const c of candidates) {roll -= c.weight; if (roll <= 0) return c.note;}
+        return candidates[candidates.length - 1].note;
+      }
+      function chooseQuestion() {
+        const candidates = [];
+        if (isEar()) {
+          const [lo, hi] = EAR_RANGE[save.difficulty], last = state.recent[state.recent.length - 1];
+          for (let m = lo; m <= hi; m++) {
+            if (save.difficulty === 'notes' && CHROMA[m % 12][1]) continue;
+            const note = noteFromMidi(m), id = keyFor(note);
+            const mistakes = Math.min(5, validInt(save.weaknesses[id]));
+            candidates.push({note, weight:(1 + mistakes * 1.35) * (id === last ? .12 : 1)});
+          }
+        } else {
+          let clef = save.clef;
+          if (clef === 'both') {
+            const t = state.clefCounts.treble, b = state.clefCounts.bass;
+            // Exactly six G-clef and six F-clef questions in each 12-note mixed recital.
+            clef = t >= 6 ? 'bass' : b >= 6 ? 'treble' : Math.random() < .5 ? 'treble' : 'bass';
+          }
+          state.clefCounts[clef]++;
+          const [lo, hi] = READ_RANGE[save.difficulty];
+          for (let step = lo; step <= hi; step++) {
+            for (const acc of (save.difficulty === 'notes' ? [''] : ['','#','b','n'])) {
+              const note = noteFromStep(clef, step, acc), id = keyFor(note);
+              const mistakes = Math.min(5, validInt(save.weaknesses[id]));
+              const weight = (1 + mistakes * 1.35) * (state.recent.includes(id) ? .09 : 1) * (acc === 'n' ? .58 : acc === '' ? 1 : 1.1);
+              candidates.push({note, weight});
+            }
+          }
+        }
+        // Weighted sampling favors the notes the player is still learning.
+        const note = weightedPick(candidates);
+        state.recent.push(keyFor(note)); if (state.recent.length > 4) state.recent.shift();
+        return note;
+      }
+      function makeChoices(note) {
+        if (save.difficulty === 'notes') return NAMES.map(letter => ({letter, acc:''}));
+        if (isEar()) return CHROMA.map(([letter, acc], pc) => ({letter, acc, twin:FLAT_TWIN[pc] ? {letter:FLAT_TWIN[pc], acc:'b'} : null}));
+        const choices = [{letter:note.letter, acc:note.acc}];
+        const used = new Set([spelled(note)]);
+        const add = (letter, acc) => {
+          const symbol = letter + GLYPH[acc];
+          if (!used.has(symbol)) {used.add(symbol); choices.push({letter, acc});}
+        };
+        // Distractors deliberately feature the same letter with different accidentals.
+        for (const acc of shuffle(['','#','b','n'])) if (acc !== note.acc && choices.length < 4) add(note.letter, acc);
+        // Neighboring scale degrees, then a mix of written accidentals.
+        const idx = NAMES.indexOf(note.letter);
+        for (const delta of shuffle([-1,1,-2,2])) {
+          add(NAMES[(idx + delta + 7) % 7], note.acc);
+          if (choices.length >= 7) break;
+        }
+        for (const letter of shuffle(NAMES)) for (const acc of shuffle(['','#','b','n'])) {
+          if (choices.length < 8) add(letter, acc);
+        }
+        // Shuffle the layout per question so the accidental is read, not remembered by position.
+        return shuffle(choices.slice(0, 8));
+      }
+
+      // ── Persistence ──────────────────────────────────────────────
+      function storeSave() {
+        const q = state.question;
+        save.session = {
+          mode:save.mode, runAnswers:state.runAnswers, runRight:state.runRight, runPoints:state.runPoints,
+          streak:state.streak, hintUsed:state.hintUsed, phase:state.phase,
+          question:!q ? null : q.midi !== undefined ? {midi:q.midi} : {clef:q.clef, step:q.step, acc:q.acc},
+          recent:state.recent.slice(-4), clefCounts:{...state.clefCounts}
+        };
+        try {localStorage.setItem(STORE, JSON.stringify(save));} catch (e) { /* Private mode/storage disabled: still playable. */ }
+      }
+      function restoreSession() {
+        const q = save.session;
+        if (!q || typeof q !== 'object' || Array.isArray(q)) return false;
+        if ((q.mode === undefined ? 'read' : q.mode) !== save.mode) return false;
+        if (!Number.isInteger(q.runAnswers) || q.runAnswers < 0 || q.runAnswers > SESSION_LENGTH ||
+            !Number.isInteger(q.runRight) || q.runRight < 0 || q.runRight > q.runAnswers ||
+            !Number.isSafeInteger(q.runPoints) || q.runPoints < 0 ||
+            !Number.isInteger(q.streak) || q.streak < 0 || q.streak > SESSION_LENGTH ||
+            !['question','answered','results'].includes(q.phase)) return false;
+        // Each session phase has one coherent number of recorded answers.
+        if ((q.phase === 'question' && q.runAnswers >= SESSION_LENGTH) ||
+            (q.phase === 'answered' && q.runAnswers === 0) ||
+            (q.phase === 'results' && q.runAnswers !== SESSION_LENGTH) ||
+            q.streak > q.runRight ||
+            // At most 30 points, at least 6 points per correct response.
+            q.runPoints < 6 * q.runRight || q.runPoints > 30 * q.runRight) return false;
+        const n = q.question;
+        if (!n || typeof n !== 'object') return false;
+        const counts = {treble:0, bass:0};
+        let note;
+        if (isEar()) {
+          const [lo, hi] = EAR_RANGE[save.difficulty];
+          if (!Number.isInteger(n.midi) || n.midi < lo || n.midi > hi || (save.difficulty === 'notes' && CHROMA[n.midi % 12][1])) return false;
+          note = noteFromMidi(n.midi);
+        } else {
+          const [lo, hi] = READ_RANGE[save.difficulty];
+          if (!['treble','bass'].includes(n.clef) || !Number.isInteger(n.step) || n.step < lo || n.step > hi ||
+              !['','#','b','n'].includes(n.acc) || (save.difficulty === 'notes' && n.acc)) return false;
+          if (save.clef !== 'both' && save.clef !== n.clef) return false;
+          // Clef counts include the currently displayed question, which has already been sampled.
+          if (!q.clefCounts || typeof q.clefCounts !== 'object') return false;
+          const t = q.clefCounts.treble, b = q.clefCounts.bass;
+          const counted = q.runAnswers + (q.phase === 'question' ? 1 : 0);
+          if (!Number.isInteger(t) || !Number.isInteger(b) || t < 0 || b < 0 || t + b !== counted ||
+              (save.clef === 'treble' && b !== 0) || (save.clef === 'bass' && t !== 0) ||
+              (save.clef === 'both' && (t > SESSION_LENGTH / 2 || b > SESSION_LENGTH / 2))) return false;
+          counts.treble = t; counts.bass = b;
+          note = noteFromStep(n.clef, n.step, n.acc);
+        }
+        state.runAnswers = q.runAnswers; state.runRight = q.runRight;
+        state.runPoints = q.runPoints; state.streak = q.streak;
+        state.hintUsed = !isEar() && (!!q.hintUsed || save.labels);
+        state.recent = Array.isArray(q.recent) ? q.recent.filter(v => typeof v === 'string' && v.length < 25).slice(-4) : [];
+        state.clefCounts = counts;
+        state.question = note; state.earPlayed = false;
+        if (q.phase === 'question') {
+          state.phase = 'question'; state.locked = false;
+          presentQuestion();
+          return true;
+        }
+        if (q.phase === 'answered' && state.runAnswers < SESSION_LENGTH) {
+          // An interrupted feedback delay cannot grant points twice: move on.
+          newQuestion();
+          return true;
+        }
+        // The recital is over: keep a complete engraved score beneath the results dialog.
+        state.phase = 'question'; presentQuestion();
+        setAnswersEnabled(false);
+        if (q.phase === 'answered') finishRecital();
+        else {state.locked = true; state.phase = 'results'; presentResults();}
+        return true;
+      }
+
+      // ── Rendering ────────────────────────────────────────────────
+      function levelForXp(xp) {return 1 + Math.floor(xp / 240);}
+      function safeAdd(a, b) {return Math.min(Number.MAX_SAFE_INTEGER, a + b);}
+      // Ranks open at Fibonacci levels (5 · 13 · 34 · 89): about a thousand correct notes separate an Initiate from a Maestro.
+      function levelName(level) {return level >= 89 ? 'MAESTRO' : level >= 34 ? 'VIRTUOSO' : level >= 13 ? 'ADEPT' : level >= 5 ? 'APPRENTICE' : 'INITIATE';}
+      function recitalLabel() {return save.recitalNumber < 10000 ? String(save.recitalNumber).padStart(2, '0') : displayCount(save.recitalNumber);}
+      function setFeedback(tone, text) {
+        $('feedback').className = 'feedback' + (tone ? ' ' + tone : '');
+        $('feedback').textContent = text;
+      }
+      function refreshHud() {
+        $('streakNum').textContent = state.streak;
+        $('pointsNum').textContent = displayCount(save.score);
+        $('pointsNum').title = save.score.toLocaleString('en-US') + ' total points';
+        $('accuracyNum').textContent = save.attempts ? Math.round(100 * save.correct / save.attempts) + '%' : '—';
+        const position = Math.min(SESSION_LENGTH, state.phase === 'question' ? state.runAnswers + 1 : Math.max(1, state.runAnswers));
+        $('roundInfo').textContent = 'RECITAL ' + recitalLabel() + ' · ' + String(position).padStart(2, '0') + ' / 12';
+        $('roundInfo').title = 'Recital ' + save.recitalNumber.toLocaleString('en-US');
+        const level = levelForXp(save.xp);
+        $('levelInfo').textContent = 'LEVEL ' + displayCount(level) + ' · ' + levelName(level);
+        $('levelInfo').title = 'Level ' + level.toLocaleString('en-US') + ' · ' + levelName(level);
+        $('progressFill').style.width = (100 * state.runAnswers / SESSION_LENGTH) + '%';
+        $('progressTrack').setAttribute('aria-valuenow', String(state.runAnswers));
+      }
+      function refreshHeading(note) {
+        $('clefHeading').textContent = isEar() ? 'EAR TRAINING' : note.clef === 'treble' ? 'TREBLE CLEF' : 'BASS CLEF';
+        $('difficultyHeading').textContent = '· ' + DIFFICULTY_LABEL[save.mode][save.difficulty];
+      }
+      function clearStaff() {
+        $('ledgerLayer').replaceChildren(); $('noteLayer').replaceChildren(); $('labelsLayer').replaceChildren();
+      }
+      function drawStaff(note, study=false) {
+        const treble = note.clef === 'treble';
+        $('trebleClef').classList.toggle('hidden', !treble);
+        $('bassClef').classList.toggle('hidden', treble);
+        clearStaff();
+        const ledgers = $('ledgerLayer'), notes = $('noteLayer'), labels = $('labelsLayer');
+        const x = NOTE_X, y = STAFF_BOTTOM - note.step * STEP;
+        // Ledger lines continue the staff's own spacing: one for every second step beyond it.
+        if (note.step < 0) for (let s = -2; s >= note.step; s -= 2) ledgers.appendChild(svgNode('line', {class:'ledger-line', x1:x - 21, x2:x + 21, y1:STAFF_BOTTOM - s * STEP, y2:STAFF_BOTTOM - s * STEP}));
+        if (note.step > 8) for (let s = 10; s <= note.step; s += 2) ledgers.appendChild(svgNode('line', {class:'ledger-line', x1:x - 21, x2:x + 21, y1:STAFF_BOTTOM - s * STEP, y2:STAFF_BOTTOM - s * STEP}));
+        // Classical quarter-note engraving. Stems are 3.5 spaces long, point down from the middle
+        // line upward (attached on the left) and up below it (attached on the right); a note far
+        // out on ledger lines lengthens its stem so that it still reaches the middle line.
+        const stemDown = note.step >= 4;
+        const stemX = x + (stemDown ? -12.3 : 12.3);
+        const stemEndY = stemDown ? Math.max(y + 70, STAFF_MIDDLE) : Math.min(y - 70, STAFF_MIDDLE);
+        notes.appendChild(svgNode('line', {class:'note-stem', x1:stemX, x2:stemX, y1:y + (stemDown ? 2 : -2), y2:stemEndY}));
+        notes.appendChild(svgNode('path', {class:'target-head', d:ENGRAVING.notehead, transform:`translate(${x} ${y})`}));
+        if (note.acc) {
+          // The accidental sits immediately left of the notehead, clear of any ledger line.
+          const m = ACCIDENTAL[note.acc];
+          notes.appendChild(svgNode('path', {class:'accidental-path', d:ENGRAVING[note.acc],
+            transform:`translate(${x - 23.5 - m.right * m.s} ${y + m.anchor * m.s}) scale(${m.s} ${-m.s})`}));
+        }
+        const labelled = study || (!isEar() && save.labels);
+        if (labelled) {
+          for (let s = 0; s <= 8; s++) {
+            const named = noteFromStep(note.clef, s);
+            labels.appendChild(svgNode('text', {class:'guide-label' + (s === note.step ? ' active' : ''), x:s % 2 === 0 ? 335 : 306, y:STAFF_BOTTOM - s * STEP + 3, 'text-anchor':'middle'}, nameOf(named.letter)));
+          }
+          // The note's own name appears at its head, even on ledger lines.
+          labels.appendChild(svgNode('text', {class:'target-label', x:x + 25, y:y - 11}, shown(note) + note.octave));
+        }
+        $('staffSvg').setAttribute('aria-label', (treble ? 'Treble' : 'Bass') + ' staff, ' +
+          (labelled ? 'the note is ' + spoken(note) + ', octave ' + note.octave + ', ' + positionName(note) : 'a note to identify'));
+        const guided = !isEar() && save.labels;
+        $('guide').classList.toggle('open', guided);
+        if (guided) {
+          $('guideTarget').textContent = '✦  ' + shown(note) + note.octave + ' — ' + positionName(note);
+          $('guideRule').innerHTML = staffRules(treble, 'b');
+        }
+      }
+      // The classic memory aids for the five lines and four spaces, bottom to top.
+      function staffRules(treble, tag) {
+        const lines = (treble ? 'EGBDF' : 'GBDFA').split('').map(nameOf).join(' · ');
+        const spaces = (treble ? 'FACE' : 'ACEG').split('').map(nameOf).join(' · ');
+        const letters = save.naming === 'letters', open = '<' + tag + '>', close = '</' + tag + '>';
+        return open + 'Lines' + close + ' (bottom to top) ' + lines + (letters ? ' <i>— ' + (treble ? 'Every Good Boy Does Fine' : 'Good Boys Do Fine Always') + '</i>' : '') +
+          '<br>' + open + 'Spaces' + close + ' (bottom to top) ' + spaces + (letters ? ' <i>— ' + (treble ? 'F·A·C·E spells “face”' : 'All Cows Eat Grass') + '</i>' : '') +
+          '<br>' + (treble ? 'The G clef curls around the ' + open + nameOf('G') + close + ' line.' : 'The F clef’s two dots hug the ' + open + nameOf('F') + close + ' line.');
+      }
+      function setAnswersEnabled(on) {
+        for (const b of $('answers').children) b.disabled = !on;
+        if (on) restoreKeyFocus();
+      }
+      function restoreKeyFocus() {
+        if (state.keyFocus < 0 || state.phase !== 'question' || $('settingsDialog').open || $('resultsDialog').open) return;
+        const active = document.activeElement, keys = $('answers').children;
+        // Never pull focus away from something the player has moved to in the meantime.
+        if (active && active !== document.body && active !== $('playBtn') && !$('answers').contains(active)) {state.keyFocus = -1; return;}
+        const key = keys[Math.min(state.keyFocus, keys.length - 1)];
+        if (key && !key.disabled) {key.focus({preventScroll:true}); state.keyFocus = -1;}
+        else if (isEar()) $('playBtn').focus({preventScroll:true});     // by ear the note comes first; the keys take the focus once it has sounded
+      }
+      function displayChoices(note) {
+        const choices = makeChoices(note), root = $('answers');
+        const numbered = choices.length <= 8;
+        root.replaceChildren();
+        root.className = 'answers k' + choices.length + (save.naming === 'solfege' ? ' solfege' : '');
+        choices.forEach((choice, i) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'answer';
+          b.dataset.spelling = spelled(choice); b.dataset.letter = choice.letter; b.dataset.acc = choice.acc;
+          b.dataset.pc = String(pitchClass(choice.letter, choice.acc));
+          if (numbered) b.dataset.key = String(i + 1);                       // shortcut digit, printed by CSS
+          // The accessible name starts with exactly what is printed on the key, then says the signs in words.
+          const printed = shown(choice) + (choice.twin ? ' ' + shown(choice.twin) : '');
+          const inWords = choice.acc || choice.twin ? ', ' + spoken(choice) + (choice.twin ? ' or ' + spoken(choice.twin) : '') : '';
+          b.setAttribute('aria-label', printed + inWords + (numbered ? ', key ' + (i + 1) : ''));
+          const symbol = document.createElement('span'); symbol.textContent = shown(choice);
+          b.append(symbol);
+          if (choice.twin) {const twin = document.createElement('span'); twin.className = 'twin'; twin.textContent = shown(choice.twin); b.append(' ', twin);}
+          b.addEventListener('click', () => answer(b));
+          root.appendChild(b);
+        });
+        const fixed = save.difficulty === 'notes' || isEar();
+        $('keyboardHelp').textContent = 'Keys: ' + (!fixed ? '1–8' : !isEar() ? 'C–B · 1–7' : numbered ? 'C–B · P plays' : 'C–B · Shift ♯ · P plays');
+      }
+      function refreshEarCaption() {
+        $('earCaption').textContent = state.earPlayed ? 'Tap to hear it again' : 'Tap to hear the note';
+        $('playBtn').setAttribute('aria-label', state.earPlayed ? 'Play the note again' : 'Play the note');
+      }
+      // Shows the current question; never changes which question it is.
+      function presentQuestion() {
+        const note = state.question, ear = isEar(), stage = $('stage');
+        stage.classList.remove('is-study', 'is-playing');
+        stage.classList.toggle('is-ear', ear);
+        $('sheet').classList.remove('good-flash', 'bad-flash');
+        refreshHeading(note);
+        if (ear) {
+          // The staff stays empty until the answer is given, so the page cannot give the note away.
+          clearStaff(); $('guide').classList.remove('open');
+          $('staffSvg').setAttribute('aria-label', 'The note is hidden: listen, then name it');
+          refreshEarCaption();
+          setFeedback('', state.earPlayed ? 'Which note did you hear?' : 'Press play, then name the note you hear.');
+        } else {
+          drawStaff(note);
+          setFeedback('', 'Which note is written on the staff?');
+        }
+        displayChoices(note);
+        setAnswersEnabled(!ear || state.earPlayed);
+        if (ear && !state.earPlayed) restoreKeyFocus();
+        refreshHud(); refreshHint(); fitStage();
+      }
+
+      // ── Feedback timing ──────────────────────────────────────────
+      function cancelStudy() {window.clearTimeout(state.studyTimer); state.studyTimer = 0;}
+      function clearEarTimers() {state.earTimers.forEach(t => window.clearTimeout(t)); state.earTimers = [];}
+      function stopFeedbackTimer() {
+        window.clearTimeout(state.timeout); cancelStudy();
+        state.timeout = 0; state.feedbackRemaining = 0; state.feedbackDeadline = 0;
+      }
+      function advanceFeedback() {
+        state.timeout = 0;
+        if (state.phase !== 'answered') return;
+        // Background tabs may throttle timers. Resume when the user can see the answer.
+        if (document.hidden) {state.feedbackRemaining = Math.max(400, state.feedbackDeadline - performance.now()); return;}
+        state.feedbackRemaining = 0;
+        if (state.runAnswers >= SESSION_LENGTH) finishRecital(); else newQuestion();
+      }
+      function scheduleFeedback(delay) {
+        window.clearTimeout(state.timeout);
+        state.feedbackRemaining = delay;
+        state.feedbackDeadline = performance.now() + delay;
+        state.timeout = document.hidden ? 0 : window.setTimeout(advanceFeedback, delay);
+      }
+      document.addEventListener('visibilitychange', () => {
+        if (state.phase !== 'answered') return;
+        if (document.hidden) {
+          if (state.timeout) {
+            state.feedbackRemaining = Math.max(400, state.feedbackDeadline - performance.now());
+            window.clearTimeout(state.timeout); state.timeout = 0;
+          }
+        } else if (!state.timeout) scheduleFeedback(state.feedbackRemaining || 400);
+      });
+      function clearReveal() {$('feedbackReveal').classList.remove('is-visible', 'is-wrong');}
+      function showReveal(correct, earned, info) {
+        const note = state.question;
+        $('revealMark').textContent = correct ? '✓' : '×';
+        $('revealTitle').textContent = correct ? 'Correct' : info.octaveMiss ? 'Wrong octave' : 'Incorrect';
+        $('revealSubtitle').textContent = correct ? '+' + earned + ' POINTS' : isEar() ? 'THE NOTE WAS' : 'THE CORRECT NOTE';
+        $('revealNote').textContent = correct
+          ? (state.streak >= 3 ? '✦ ' + state.streak + ' IN A ROW ✦' : isEar() ? 'Beautifully heard.' : 'Beautifully read.')
+          : answerName(note) + (isEar() ? '' : ' · ' + positionName(note));
+        // All reveal contents stay accessibility-hidden; #feedback announces the outcome.
+        $('feedbackReveal').classList.toggle('is-wrong', !correct);
+        $('feedbackReveal').classList.add('is-visible');
+      }
+      // After a mistake the verdict lifts to show the note on the staff with every name written in:
+      // the moment a wrong answer turns into a lesson, in both modes.
+      function showStudy() {
+        state.studyTimer = 0;
+        if (state.phase !== 'answered' || !state.question) return;
+        clearReveal();
+        $('stage').classList.add('is-study');
+        drawStaff(state.question, true);
+      }
+      function newQuestion(autoplay=true) {
+        clearReveal(); cancelStudy(); clearEarTimers();
+        state.locked = false; state.phase = 'question';
+        state.hintUsed = !isEar() && save.labels;
+        state.earPlayed = false; state.earBusyUntil = 0;
+        state.question = chooseQuestion();
+        presentQuestion(); storeSave();
+        // The first note of a recital waits for the play button; the following ones arrive by themselves.
+        if (autoplay && isEar() && state.runAnswers > 0 && save.sound && audioCtx && audioCtx.state === 'running' && !document.hidden) playEar(true);
+      }
+
+      // ── Sound ────────────────────────────────────────────────────
+      // Runs `play` once the audio clock is really moving. A context that is still suspended
+      // (no tap yet, e.g. the first answer came from a MIDI key) must not queue notes at a frozen
+      // time, or they would all burst out together on the next tap; late requests are dropped.
+      function withAudio(play) {
+        if (!save.sound) return false;
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return false;
+          if (audioCtx && audioCtx.state === 'closed') {audioCtx = null; outputGain = null;}
+          if (!audioCtx) audioCtx = new AudioContextClass();
+          if (!outputGain) outputGain = makeOutputBus(audioCtx, true);
+          const ctx = audioCtx, bus = outputGain;
+          bus.gain.setTargetAtTime(.66, ctx.currentTime, .012);
+          if (ctx.state === 'running') {play(ctx, bus); return true;}
+          const asked = performance.now();
+          ctx.resume().then(() => {
+            if (ctx === audioCtx && ctx.state === 'running' && save.sound && performance.now() - asked < 900) play(ctx, bus);
+          }).catch(() => {});
+          return true;
+        } catch (e) {return false;} // No audio support: notes and scoring remain fully usable.
+      }
+      function soundFor(note, correct) {
+        const hz = hzOf(midiOf(note)), streak = state.streak, ear = isEar(), lead = ear && save.reference ? REFERENCE_GAP : 0, voice = save.timbre;
+        withAudio((ctx, bus) => {
+          hush(ctx);                                  // whatever is still ringing stops before the answer is sounded
+          const start = ctx.currentTime + .03;
+          if (correct) {
+            playNote(ctx, bus, voice, hz, start, .95, 1.1);
+            playReward(ctx, bus, hz, start, streak, ear);
+          } else if (ear) {
+            // A mistake by ear is answered with the truth alone — the reference (when on) and the note —
+            // so that no unrelated pitch blurs what the listener is trying to remember.
+            if (lead) playNote(ctx, bus, voice, hzOf(REFERENCE_MIDI), start + .2, .6, lead - .16, .05);
+            playNote(ctx, bus, voice, hz, start + .2 + lead, .9, 1.3);
+          } else {
+            playGentleError(ctx, bus, start);
+            playNote(ctx, bus, voice, hz, start + .245, .8, 1.3);
+          }
+        });
+      }
+      // Ear training: (reference C, then) the mystery note. A press while it still sounds is ignored.
+      function playEar(automatic=false) {
+        if (!isEar() || state.phase !== 'question' || state.locked || !state.question) return;
+        const now = performance.now();
+        if (now < state.earBusyUntil) return;
+        if (!save.sound) {
+          if (automatic) return;
+          save.sound = true; refreshSoundButton(); storeSave();   // listening needs sound: the play button unmutes
+        }
+        const hz = hzOf(midiOf(state.question)), lead = save.reference ? REFERENCE_GAP : 0;
+        const started = withAudio((ctx, bus) => {
+          hush(ctx);
+          const t = ctx.currentTime + .05;
+          // The reference is damped just before the mystery note enters: the two are heard one after the other, never together.
+          if (lead) playNote(ctx, bus, save.timbre, hzOf(REFERENCE_MIDI), t, .6, lead - .16, .05);
+          playNote(ctx, bus, save.timbre, hz, t + lead, .95, 1.35);
+        });
+        if (!started) {setFeedback('bad', 'Audio is not available in this browser.'); return;}
+        clearEarTimers();
+        state.earBusyUntil = now + (lead + .62) * 1000;
+        $('stage').classList.add('is-playing');
+        $('earCaption').textContent = lead ? 'Reference ' + nameOf('C') : 'Listen';
+        const later = (seconds, run) => state.earTimers.push(window.setTimeout(run, seconds * 1000));
+        if (lead) later(lead, () => {$('earCaption').textContent = 'Now the mystery note';});
+        later(lead + .14, () => {
+          if (state.phase !== 'question') return;
+          state.earPlayed = true; setAnswersEnabled(true);
+          setFeedback('', 'Which note did you hear?');
+        });
+        later(lead + .9, () => {$('stage').classList.remove('is-playing'); refreshEarCaption();});
+      }
+      // A short broken chord in the chosen instrument, heard the moment it is picked in the settings.
+      function previewTimbre() {
+        if (!save.sound) {save.sound = true; refreshSoundButton();}      // choosing a sound is asking to hear it
+        withAudio((ctx, bus) => {
+          hush(ctx);
+          const t = ctx.currentTime + .04;
+          [60, 64, 67, 72].forEach((number, i) => playNote(ctx, bus, save.timbre, hzOf(number), t + i * .19, .85, i === 3 ? 1.1 : .42));
+        });
+      }
+
+      // ── Answering ────────────────────────────────────────────────
+      function answer(button) {
+        if (state.locked || !state.question || button.disabled) return;
+        // Remember where keyboard focus was: the keys are rebuilt for every question, and a player who
+        // answers with Tab and Enter must find the focus on the keys again, not back at the top of the page.
+        state.keyFocus = document.activeElement === button ? [...$('answers').children].indexOf(button) : -1;
+        resolveAnswer(button.dataset.spelling === spelled(state.question), button, {});
+      }
+      function resolveAnswer(correct, button, info) {
+        if (state.locked || !state.question || $('settingsDialog').open || $('resultsDialog').open) return;
+        clearEarTimers(); $('stage').classList.remove('is-playing');
+        state.locked = true; state.phase = 'answered';
+        const q = state.question, id = keyFor(q), feedback = $('feedback');
+        const rightButton = [...$('answers').children].find(b => b.dataset.spelling === spelled(q));
+        state.runAnswers++; save.attempts = safeAdd(save.attempts, 1);
+        let earned = 0;
+        if (correct) {
+          state.streak++; state.runRight++; save.correct = safeAdd(save.correct, 1);
+          save.bestStreak = Math.max(save.bestStreak, state.streak);
+          earned = 10 + Math.min(10, state.streak) * 2;
+          // A hint used at any point during this question reduces the award, even if hidden again.
+          if (state.hintUsed) earned = Math.max(6, Math.round(earned * .65));
+          state.runPoints = safeAdd(state.runPoints, earned); save.score = safeAdd(save.score, earned); save.xp = safeAdd(save.xp, earned);
+          save.weaknesses[id] = Math.max(0, validInt(save.weaknesses[id]) - 1);
+          if (rightButton) rightButton.classList.add('correct');
+          $('sheet').classList.add('good-flash');
+          feedback.className = 'feedback good';
+          feedback.textContent = state.streak >= 5 ? '✦  Wonderful!  +' + earned + ' · ' + state.streak + ' in a row' : '✦  Correct!  +' + earned + ' points';
+        } else {
+          state.streak = 0;
+          save.weaknesses[id] = Math.min(10, validInt(save.weaknesses[id]) + 1);
+          if (button && button !== rightButton) button.classList.add('incorrect');
+          if (rightButton) rightButton.classList.add('correct');
+          $('sheet').classList.add('bad-flash');
+          feedback.className = 'feedback bad';
+          feedback.textContent = (info.octaveMiss ? 'Right note, wrong octave' : info.played ? 'You played ' + info.played : 'Not quite') + ' · ' +
+            (isEar() ? 'It was ' + answerName(q) : 'It is ' + answerName(q) + ' — ' + positionName(q));
+        }
+        setAnswersEnabled(false);
+        showReveal(correct, earned, info);
+        soundFor(q, correct);
+        if (correct && navigator.vibrate && (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+          try {navigator.vibrate(12);} catch (e) {}
+        }
+        refreshHud(); storeSave();
+        if (!correct) state.studyTimer = window.setTimeout(showStudy, 1250);
+        scheduleFeedback(correct ? 1650 : 3100);
+      }
+      function finishRecital() {
+        stopFeedbackTimer(); clearReveal(); clearEarTimers();
+        state.locked = true; state.phase = 'results';
+        const best = isEar() ? 'bestEar' : 'bestRecital';
+        save[best] = Math.max(save[best], state.runRight);
+        storeSave(); refreshHud(); presentResults();
+      }
+      function presentResults() {
+        const perfect = state.runRight === SESSION_LENGTH, ear = isEar();
+        $('resultsKicker').textContent = perfect ? 'A PERFECT RECITAL' : 'RECITAL ' + recitalLabel() + ' COMPLETE';
+        $('resultsTitle').textContent = perfect ? 'A flawless recital.' : state.runRight >= 9 ? 'Beautifully played.' : state.runRight >= 6 ? (ear ? 'Your ear grows keener.' : 'Your reading grows stronger.') : 'Every note is progress.';
+        $('resultsSubtitle').textContent = perfect
+          ? (ear ? 'Every pitch named at once. You are listening like a virtuoso.' : 'Every symbol in its place. You are reading like a virtuoso.')
+          : (ear ? 'Return and listen again: each recital makes the distances between notes more familiar.' : 'Return to the staff and watch unfamiliar notes become familiar.');
+        $('resultsRight').textContent = state.runRight;
+        $('resultsAccuracy').textContent = Math.round(100 * state.runRight / SESSION_LENGTH) + '%';
+        $('resultsPoints').textContent = state.runPoints;
+        $('resultsBest').textContent = save[ear ? 'bestEar' : 'bestRecital'] + '/12';
+        if (!$('resultsDialog').open) $('resultsDialog').showModal();
+      }
+      function startRecital(increment=true) {
+        stopFeedbackTimer();
+        if (audioCtx) hush(audioCtx);
+        if (increment && state.runAnswers > 0) save.recitalNumber = safeAdd(save.recitalNumber, 1);
+        state.streak = 0; state.runRight = 0; state.runPoints = 0; state.runAnswers = 0;
+        state.locked = false; state.recent = []; state.phase = 'question'; state.clefCounts = {treble:0, bass:0}; state.keyFocus = -1;
+        newQuestion();
+      }
+
+      // ── Controls ─────────────────────────────────────────────────
+      function refreshLabelButton() {
+        $('labelsBtn').setAttribute('aria-pressed', String(save.labels));
+        $('labelsBtnText').textContent = save.labels ? 'Hide labels' : 'Show labels';
+      }
+      function refreshRefButton() {
+        $('refBtn').setAttribute('aria-pressed', String(save.reference));
+        $('refBtnText').textContent = 'Reference ' + nameOf('C');
+        $('refBtn').title = 'Play a reference ' + nameOf('C') + ' before the mystery note';
+      }
+      function refreshHint() {
+        const c = nameOf('C');
+        const keyboard = !midiAvailable() ? '' : midi.status === 'ready'
+          ? '<br>Your <strong>MIDI keyboard</strong> is connected: play the note, or tap a key.'
+          : '<br>Have a MIDI keyboard? Connect it in <strong>settings</strong> and answer by playing.';
+        $('bottomHint').innerHTML = (isEar()
+          ? (save.reference ? '<strong>Reference ' + c + '</strong> sounds first: measure the distance from it to the mystery note.' : 'No reference tone: you are naming each note from memory alone.')
+          : (save.labels
+              ? staffRules(!state.question || state.question.clef === 'treble', 'strong') + '<br>Guided practice earns fewer points. <strong>Hide labels</strong> when you feel ready.'
+              : 'Tap <strong>Show labels</strong> to reveal the note names on the staff.')) + keyboard;
+      }
+      function refreshSoundButton() {
+        $('soundOnIcon').classList.toggle('hidden', !save.sound);
+        $('soundOffIcon').classList.toggle('hidden', save.sound);
+        $('soundBtn').setAttribute('aria-label', save.sound ? 'Mute sound' : 'Unmute sound');
+        $('soundBtn').title = save.sound ? 'Mute sound' : 'Unmute sound';
+      }
+      function refreshModeUi() {
+        const ear = isEar();
+        document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === save.mode)));
+        $('heroVerb').textContent = ear ? 'Hear' : 'Read';
+        $('heroLine').textContent = ear ? 'A little listening. A finer ear.' : 'A little practice. A beautiful new language.';
+        $('labelsBtn').classList.toggle('hidden', ear);
+        $('refBtn').classList.toggle('hidden', !ear);
+        $('answerTitle').textContent = ear ? 'NAME THE NOTE YOU HEAR' : 'NAME THE WRITTEN NOTE';
+        refreshLabelButton(); refreshRefButton(); refreshHint();
+      }
+      function refreshPicks() {
+        const p = state.pending, ear = isEar();
+        document.querySelectorAll('[data-clef]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.clef === p.clef)));
+        document.querySelectorAll('[data-difficulty]').forEach(b => {
+          b.setAttribute('aria-pressed', String(b.dataset.difficulty === p.difficulty));
+          b.lastElementChild.textContent = ear ? b.dataset.ear : b.dataset.read;
+        });
+        document.querySelectorAll('[data-naming]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.naming === p.naming)));
+        document.querySelectorAll('[data-octave]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.octave === p.octave)));
+        document.querySelectorAll('[data-timbre]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.timbre === save.timbre)));
+      }
+      function refreshSettingsCopy() {
+        const ear = isEar();
+        $('settingsKicker').textContent = ear ? 'EAR TRAINING' : 'SIGHT-READING';
+        $('clefField').classList.toggle('hidden', ear);
+        $('settingsCopy').textContent = ear
+          ? 'Choose the notes you’d like to recognize by ear. Every recital contains 12 notes.'
+          : 'Choose your clef and the notes you’d like to master. Every recital contains 12 notes.';
+        $('settingsTip').innerHTML = ear
+          ? 'With <b>Reference ' + nameOf('C') + '</b> on, middle C sounds first and the mystery note follows, so you measure the distance between them — <b>relative pitch</b>, the skill musicians rely on. Switch it off to name a note with no reference. Sharps and flats that sound alike (C♯ and D♭) share one key.'
+          : 'A <b>sharp (♯)</b> raises a note by one semitone; a <b>flat (♭)</b> lowers it by one semitone. A <b>natural (♮)</b> means the unaltered note. Read the written spelling, not just the sound. In this single-note drill, a natural sign can be shown as a courtesy reminder, even without an earlier accidental. In a full score, it often cancels a key-signature or earlier accidental.';
+      }
+      function openSettings() {
+        clearReveal();
+        if (state.phase === 'answered') {
+          // A pending end-of-recital timer must not open a second modal on top of settings.
+          stopFeedbackTimer();
+          if (state.runAnswers >= SESSION_LENGTH) {
+            state.locked = true; state.phase = 'results';
+            const best = isEar() ? 'bestEar' : 'bestRecital';
+            save[best] = Math.max(save[best], state.runRight);
+            state.settingsReturnToResults = true;
+            storeSave(); refreshHud();
+          } else {
+            // Complete feedback before opening a pause-like settings dialog (and keep it silent).
+            newQuestion(false);
+          }
+        }
+        state.pending = {clef:save.clef, difficulty:save.difficulty, naming:save.naming, octave:save.midiOctave};
+        refreshPicks(); refreshSettingsCopy(); refreshMidiUi();
+        if (!$('settingsDialog').open) $('settingsDialog').showModal();
+      }
+      $('settingsBtn').addEventListener('click', openSettings);
+      $('soundBtn').addEventListener('click', () => {
+        save.sound = !save.sound;
+        if (outputGain && audioCtx) outputGain.gain.setTargetAtTime(save.sound ? .66 : 0, audioCtx.currentTime, .012);
+        refreshSoundButton(); storeSave();
+      });
+      $('labelsBtn').addEventListener('click', () => {
+        save.labels = !save.labels;
+        if (save.labels && state.phase === 'question') state.hintUsed = true;
+        refreshLabelButton(); refreshHint();
+        if (state.question && !isEar() && !$('stage').classList.contains('is-study')) drawStaff(state.question);
+        storeSave(); fitStage();
+      });
+      $('refBtn').addEventListener('click', () => {
+        save.reference = !save.reference;
+        refreshRefButton(); refreshHint(); storeSave();
+      });
+      $('playBtn').addEventListener('click', () => playEar(false));
+      document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+        if (b.dataset.mode === save.mode) return;
+        save.mode = b.dataset.mode;
+        refreshModeUi(); startRecital(true);
+      }));
+      // The instrument is a matter of taste, not of difficulty: it is kept and heard at once, without restarting the recital.
+      for (const [id, name, character] of TIMBRES) {
+        const b = document.createElement('button'), sub = document.createElement('span');
+        b.type = 'button'; b.className = 'pick'; b.dataset.timbre = id;
+        sub.textContent = character;
+        b.append(name, ' ', sub);
+        b.addEventListener('click', () => {save.timbre = id; refreshPicks(); previewTimbre(); storeSave();});
+        $('timbreChoices').append(b);
+      }
+      const bindPicks = (attr, key) => document.querySelectorAll('[data-' + attr + ']').forEach(b => b.addEventListener('click', () => {state.pending[key] = b.dataset[attr]; refreshPicks();}));
+      bindPicks('clef', 'clef'); bindPicks('difficulty', 'difficulty'); bindPicks('naming', 'naming'); bindPicks('octave', 'octave');
+      document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => $(b.dataset.close).close()));
+      $('applySettings').addEventListener('click', () => {
+        state.settingsReturnToResults = false;
+        const p = state.pending;
+        save.clef = p.clef; save.difficulty = p.difficulty; save.naming = p.naming; save.midiOctave = p.octave;
+        $('settingsDialog').close(); if ($('resultsDialog').open) $('resultsDialog').close();
+        refreshModeUi(); startRecital(true);
+      });
+      $('replayBtn').addEventListener('click', () => {$('resultsDialog').close(); startRecital(true);});
+      $('changeModeBtn').addEventListener('click', () => {$('resultsDialog').close(); state.settingsReturnToResults = true; openSettings();});
+      $('settingsDialog').addEventListener('close', () => {
+        // Cancelling settings from the finished recital must never strand the player on a locked board.
+        if (state.settingsReturnToResults) {state.settingsReturnToResults = false; if (!$('resultsDialog').open) $('resultsDialog').showModal();}
+      });
+      // Backdrop tap closes settings only; results require a deliberate choice.
+      $('settingsDialog').addEventListener('click', e => {if (e.target === $('settingsDialog')) $('settingsDialog').close();});
+      $('resultsDialog').addEventListener('cancel', e => {e.preventDefault(); $('resultsDialog').close(); startRecital(true);});
+
+      // Computer keyboard: letters name the note (Shift adds a sharp), digits pick a key by position,
+      // P or Space plays the mystery note.
+      document.addEventListener('keydown', e => {
+        const focus = document.activeElement, tag = focus ? focus.tagName : '';
+        if ($('settingsDialog').open || $('resultsDialog').open || e.altKey || e.ctrlKey || e.metaKey || e.repeat || tag === 'INPUT' || tag === 'TEXTAREA') return;
+        const keys = [...$('answers').children];
+        let target = null;
+        if (isEar() && (e.key === 'p' || e.key === 'P' || (e.key === ' ' && tag !== 'BUTTON' && tag !== 'SUMMARY'))) {
+          e.preventDefault(); playEar(false); return;
+        }
+        if (/^[1-8]$/.test(e.key) && keys.length <= 8) target = keys[Number(e.key) - 1];
+        else if (/^[a-gA-G]$/.test(e.key)) {
+          const letter = e.key.toUpperCase(), sharps = keys.some(b => b.dataset.acc === '#');
+          const acc = e.shiftKey && sharps ? '#' : '';                       // Shift is forgiven where no sharps are on offer
+          target = keys.find(b => b.dataset.letter === letter && b.dataset.acc === acc);
+        }
+        if (target && !target.disabled) {e.preventDefault(); target.click();}
+      });
+
+      // ── MIDI keyboard (Web MIDI: Chrome, Edge, Opera, and Chrome for Android) ────
+      // Any connected keyboard answers in both modes. A played key is judged by its pitch:
+      // F♯ and G♭ are the same key, E♯ is the F key. Octave matching is the player's choice.
+      function midiAvailable() {return typeof navigator.requestMIDIAccess === 'function';}
+      function refreshMidiUi() {
+        const s = !midiAvailable() ? 'unsupported' : midi.status;
+        const text = {
+          unsupported:window.isSecureContext === false
+            ? 'Web MIDI needs a secure page. Open Vesper over HTTPS (or from localhost) in Chrome.'
+            : 'Web MIDI is not available in this browser. Open Vesper in Chrome or Edge (Android, Windows, macOS, Linux) to play with a MIDI keyboard.',
+          idle:'Plug a MIDI keyboard into this device by USB, then connect it here to answer by playing the keys.',
+          pending:'Waiting for permission to use MIDI devices…',
+          waiting:'Ready. No keyboard found yet — plug it in or switch it on and it will be detected automatically.',
+          ready:'Connected · ' + midi.names.join(', '),
+          denied:'MIDI access was blocked. Allow “MIDI devices” for this page in the browser’s site settings, then try again.',
+          error:'The MIDI system could not start. Reconnect the keyboard and try again.'
+        }[s];
+        $('midiStatusText').textContent = text;
+        $('midiStatus').className = 'midi-status' + (s === 'ready' ? ' is-ready' : s === 'pending' || s === 'waiting' ? ' is-pending' : s === 'denied' || s === 'error' || s === 'unsupported' ? ' is-bad' : '');
+        $('midiBtn').classList.toggle('hidden', s === 'unsupported');
+        $('midiBtn').disabled = s === 'pending';
+        $('midiBtn').textContent = s === 'pending' ? 'Connecting…' : s === 'ready' || s === 'waiting' ? 'Search for keyboards again' : 'Connect MIDI keyboard';
+        $('octaveChoices').classList.toggle('hidden', s === 'unsupported');
+        $('midiChip').classList.toggle('hidden', s !== 'ready');
+        $('midiChip').title = s === 'ready' ? 'MIDI keyboard connected: ' + midi.names.join(', ') : '';
+        $('midiChip').setAttribute('aria-label', s === 'ready' ? 'MIDI keyboard connected: ' + midi.names.join(', ') : '');
+        refreshHint();
+      }
+      function onMidiMessage(event) {
+        const d = event.data;
+        // Note-on with a velocity; a note-on at velocity 0 is a note-off. Clock, sustain etc. are ignored.
+        if (d && d.length >= 3 && (d[0] & 0xF0) === 0x90 && d[2] > 0) handleMidiNote(d[1]);
+      }
+      function bindMidi() {
+        if (!midi.access) return;
+        midi.names = [];
+        midi.access.inputs.forEach(input => {
+          if (input.state === 'disconnected') return;
+          input.onmidimessage = onMidiMessage;                 // also opens the port
+          midi.names.push(input.name || 'MIDI keyboard');
+        });
+        midi.status = midi.names.length ? 'ready' : 'waiting';
+        refreshMidiUi();
+      }
+      function connectMidi() {
+        if (!midiAvailable()) {refreshMidiUi(); return;}
+        if (midi.access) {bindMidi(); return;}
+        midi.status = 'pending'; refreshMidiUi();
+        navigator.requestMIDIAccess({sysex:false}).then(access => {
+          midi.access = access;
+          access.onstatechange = bindMidi;                     // hot-plug: keyboards may come and go
+          bindMidi();
+          if (!save.midi) {save.midi = true; storeSave();}
+        }).catch(error => {
+          midi.status = error && (error.name === 'SecurityError' || error.name === 'NotAllowedError') ? 'denied' : 'error';
+          refreshMidiUi();
+        });
+      }
+      function handleMidiNote(number) {
+        if ($('settingsDialog').open || $('resultsDialog').open) return;
+        if (state.locked || state.phase !== 'question' || !state.question) return;
+        if (isEar() && !state.earPlayed) {
+          setFeedback('', performance.now() < state.earBusyUntil ? 'Listen to the note first, then answer.' : 'Press play and listen first.');
+          return;
+        }
+        const q = state.question, target = midiOf(q), pc = ((number % 12) + 12) % 12;
+        const samePitchClass = pc === ((target % 12) + 12) % 12;
+        const correct = save.midiOctave === 'exact' ? number === target : samePitchClass;
+        const [letter, acc] = CHROMA[pc];
+        const button = correct ? null : [...$('answers').children].find(b => Number(b.dataset.pc) === pc && b.dataset.spelling !== spelled(q)) || null;
+        resolveAnswer(correct, button, {played:nameOf(letter) + GLYPH[acc] + (Math.floor(number / 12) - 1), octaveMiss:!correct && samePitchClass});
+      }
+      $('midiBtn').addEventListener('click', connectMidi);
+      // A keyboard that was allowed before reconnects by itself; the permission prompt is never shown unasked.
+      function reconnectMidi() {
+        if (!save.midi || !midiAvailable() || !navigator.permissions || !navigator.permissions.query) return;
+        try {
+          navigator.permissions.query({name:'midi'}).then(p => {if (p.state === 'granted') connectMidi();}).catch(() => {});
+        } catch (e) {}
+      }
+
+      // ── Fit ──────────────────────────────────────────────────────
+      // The paper keeps its golden rectangle whenever the viewport allows. On a short screen it
+      // gives up height (never below STAGE_MIN) so that the answer keys stay on screen with it.
+      function fitStage() {
+        const stage = $('stage'), app = $('app');
+        // The smaller of the layout and visual viewports: what is visible while the browser's bars are showing.
+        const viewport = Math.min(document.documentElement.clientHeight, window.innerHeight || Infinity);
+        if (!viewport || !stage.clientWidth) return;
+        const natural = Math.round(Math.min(stage.clientWidth, STAGE_MAX_WIDTH) / PHI + 8);
+        const bottomOf = el => el.getBoundingClientRect().bottom + window.scrollY;
+        // Sizes the paper for the current layout; reports whether everything essential is on screen at full size.
+        const fit = () => {
+          const style = getComputedStyle(app), columns = style.display === 'grid';
+          const limit = viewport - (parseFloat(style.paddingBottom) || 0);
+          const anchor = columns ? $('sheet') : $('answerSection');             // two columns: only the sheet depends on the paper
+          const rest = bottomOf(anchor) - stage.getBoundingClientRect().height;
+          const height = Math.max(STAGE_MIN, Math.min(natural, Math.floor(limit - rest)));
+          stage.style.height = height + 'px';
+          stage.classList.add('fit');
+          stage.classList.toggle('is-short', height < 170);
+          const sheetEnd = bottomOf($('sheet')), keysEnd = bottomOf($('answerSection'));
+          return height >= natural && Math.max(sheetEnd, keysEnd) <= limit + .5 && (!columns || keysEnd <= sheetEnd + .5);
+        };
+        // The title is an ornament: it appears only where it costs the score and the keys nothing.
+        app.classList.add('has-intro');
+        if (!fit()) {app.classList.remove('has-intro'); fit();}
+      }
+      function queueFit() {
+        window.cancelAnimationFrame(fitFrame);
+        fitFrame = window.requestAnimationFrame(fitStage);
+        // Some phones report the rotated viewport a moment after the event: fit once more when it has settled.
+        window.clearTimeout(fitTimer);
+        fitTimer = window.setTimeout(fitStage, 260);
+      }
+      window.addEventListener('resize', queueFit);
+      window.addEventListener('orientationchange', queueFit);
+
+      try {
+        refreshModeUi(); refreshSoundButton(); refreshMidiUi();
+        if (!restoreSession()) startRecital(false);
+        reconnectMidi();
+      } catch (error) {
+        document.documentElement.classList.remove('ready');     // let the note in the page speak instead of a frozen board
+        throw error;
+      }
+    })();
+  </script>
+</body>
+</html>
